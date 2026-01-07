@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Module Loading Test</title>
+</head>
+
+<body>
+    <h1>Testing Module Imports</h1>
+    <div id="status">Loading...</div>
+    <pre id="errors" style="color: red;"></pre>
+
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        const errorsEl = document.getElementById('errors');
+
+        window.addEventListener('error', (e) => {
+            errorsEl.textContent += `ERROR: ${e.message}\n  at ${e.filename}:${e.lineno}\n\n`;
+        });
+
+        try {
+            statusEl.textContent = 'Testing imports...';
+
+            // Test each import individually
+            const tests = [
+                { name: 'enhancedState', path: './src/core/enhancedState.js' },
+                { name: 'gameLoop', path: './src/core/gameLoop.js' },
+                { name: 'renderer', path: './src/ui/renderer.js' },
+                { name: 'director', path: './src/core/director.js' },
+                { name: 'syncStartModal', path: './src/ui/syncStartModal.js' }
+            ];
+
+            for (const test of tests) {
+                try {
+                    await import(test.path);
+                    console.log(`✓ ${test.name} loaded successfully`);
+                } catch (err) {
+                    const msg = `✗ ${test.name} FAILED: ${err.message}`;
+                    console.error(msg);
+                    errorsEl.textContent += msg + '\n';
+                }
+            }
+
+            statusEl.textContent = 'Test complete - check console and errors above';
+
+        } catch (err) {
+            errorsEl.textContent += `FATAL: ${err.message}\n${err.stack}`;
+        }
+    </script>
+</body>
+
+</html>

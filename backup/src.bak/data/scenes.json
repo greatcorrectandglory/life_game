@@ -1,0 +1,1118 @@
+{
+  "meta": {
+    "title": "反脆弱人生",
+    "startScene": "intro"
+  },
+  "randomEvents": [
+    { "id": "rand_school_contest", "weight": 3, "minTurn": 2, "conditions": [{ "hasFlag": "stage_teen" }] },
+    { "id": "rand_friend_conflict", "weight": 2, "minTurn": 3, "conditions": [{ "hasFlag": "stage_teen" }] },
+    { "id": "rand_skill_course", "weight": 3, "minTurn": 5, "conditions": [{ "hasFlag": "stage_college" }] },
+    { "id": "rand_mentor", "weight": 2, "minTurn": 6, "conditions": [{ "hasFlag": "stage_college" }] },
+    { "id": "rand_freelance", "weight": 3, "minTurn": 7, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_network_invite", "weight": 3, "minTurn": 7, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_side_income", "weight": 2, "minTurn": 8, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_health", "weight": 2, "minTurn": 8, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_family_help", "weight": 2, "minTurn": 8, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_market_dip", "weight": 2, "minTurn": 9, "conditions": [{ "hasFlag": "stage_career" }] },
+    { "id": "rand_spotlight", "weight": 1, "minTurn": 10, "conditions": [{ "hasFlag": "stage_career" }, { "hasTag": "networking" }] },
+    { "id": "rand_city_disruption", "weight": 2, "minTurn": 10, "conditions": [{ "hasFlag": "stage_crisis" }] },
+    { "id": "rand_career_reskill", "weight": 2, "minTurn": 10, "conditions": [{ "hasFlag": "stage_crisis" }] },
+    { "id": "rand_emergency_savings", "weight": 2, "minTurn": 10, "conditions": [{ "hasFlag": "stage_crisis" }] }
+  ],
+  "scenes": [
+    {
+      "id": "intro",
+      "text": "你出生在现代中国。命运由家庭与天赋共同写下开端。",
+      "choices": [
+        {
+          "text": "选择家庭成长环境",
+          "effects": [
+            { "setFlag": "need_family_pick" },
+            { "setStage": "stage_teen" }
+          ],
+          "next": "family_pick"
+        }
+      ]
+    },
+    {
+      "id": "family_pick",
+      "text": "请选择你的家庭成长环境。",
+      "choices": [
+        {
+          "text": "城市中产家庭",
+          "effects": [
+            { "set": { "family_env": "urban_middle" } },
+            { "add": { "money": 2000, "social": 1 } }
+          ],
+          "next": "childhood_health"
+        },
+        {
+          "text": "县城普通家庭",
+          "effects": [
+            { "set": { "family_env": "county" } },
+            { "add": { "money": 800, "social": 0 } }
+          ],
+          "next": "childhood_health"
+        },
+        {
+          "text": "农村家庭",
+          "effects": [
+            { "set": { "family_env": "rural" } },
+            { "add": { "money": 200, "social": -1 } }
+          ],
+          "next": "childhood_health"
+        }
+      ]
+    },
+    {
+      "id": "childhood_health",
+      "text": "小学时期，你的身体素质基础如何？",
+      "choices": [
+        {
+          "text": "体育活跃，耐力较好",
+          "effects": [
+            { "add": { "stress_max": 5 } },
+            { "addTag": "fitness" }
+          ],
+          "next": "talent_pick"
+        },
+        {
+          "text": "体质一般，偶有小病",
+          "effects": [
+            { "add": { "stress_max": 0 } }
+          ],
+          "next": "talent_pick"
+        },
+        {
+          "text": "体弱多病",
+          "effects": [
+            { "add": { "stress_max": -5 } },
+            { "addTrait": "fragile_body" }
+          ],
+          "next": "talent_pick"
+        }
+      ]
+    },
+    {
+      "id": "talent_pick",
+      "text": "你的个人天赋影响精力、压力上限与技能成长方式。",
+      "choices": [
+        {
+          "text": "偏理性（冷静、计算）",
+          "effects": [
+            { "set": { "talent": "rational" } },
+            { "add": { "energy_max": 10, "stress_max": -5 } }
+          ],
+          "next": "childhood_family"
+        },
+        {
+          "text": "偏感性（共情、直觉）",
+          "effects": [
+            { "set": { "talent": "empathic" } },
+            { "add": { "energy_max": 5, "stress_max": 10 } }
+          ],
+          "next": "childhood_family"
+        },
+        {
+          "text": "偏坚韧（抗压、持久）",
+          "effects": [
+            { "set": { "talent": "grit" } },
+            { "add": { "energy_max": 8, "stress_max": 15 } }
+          ],
+          "next": "childhood_family"
+        }
+      ]
+    },
+    {
+      "id": "childhood_family",
+      "text": "家庭教育方式影响你的性格与社交。",
+      "choices": [
+        {
+          "text": "严格要求，成绩至上",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTrait": "perfectionism" }
+          ],
+          "next": "teen_study"
+        },
+        {
+          "text": "开明支持，鼓励探索",
+          "effects": [
+            { "add": { "social": 1 } },
+            { "addTrait": "curiosity" }
+          ],
+          "next": "teen_study"
+        },
+        {
+          "text": "放养型，自主为主",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTrait": "self_reliance" }
+          ],
+          "next": "teen_study"
+        }
+      ]
+    },
+    {
+      "id": "teen_study",
+      "text": "初中阶段，你如何面对学习？",
+      "choices": [
+        {
+          "text": "死记硬背应试",
+          "effects": [
+            { "add": { "stress": 10 } },
+            { "addTag": "rote_skill" },
+            { "addTrait": "authority_obedience" }
+          ],
+          "next": "teen_entertain"
+        },
+        {
+          "text": "独立思考探索",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTag": "deep_thinking" },
+            { "addTrait": "cognitive_antifragile" }
+          ],
+          "next": "teen_entertain"
+        }
+      ]
+    },
+    {
+      "id": "teen_entertain",
+      "text": "晚自习后的放松时间，你会？",
+      "choices": [
+        {
+          "text": "刷短视频",
+          "effects": [
+            { "add": { "stress": -15 } },
+            { "addTrait": "rigid_thinking" }
+          ],
+          "next": "teen_social"
+        },
+        {
+          "text": "看高信息熵剧集并写影评",
+          "effects": [
+            { "add": { "stress": -5 } },
+            { "addTag": "narrative_analysis" }
+          ],
+          "next": "teen_social"
+        }
+      ]
+    },
+    {
+      "id": "teen_social",
+      "text": "同学关系是你的支持还是消耗？",
+      "choices": [
+        {
+          "text": "参加社团，拓展人脉",
+          "effects": [
+            { "add": { "social": 2 } },
+            { "addTag": "networking" }
+          ],
+          "next": "highschool_path"
+        },
+        {
+          "text": "专注成绩，少社交",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTag": "deep_work" }
+          ],
+          "next": "highschool_path"
+        }
+      ]
+    },
+    {
+      "id": "highschool_path",
+      "text": "高考临近，你的选择将影响未来专业方向。",
+      "choices": [
+        {
+          "text": "冲刺理工（建筑/工科）",
+          "effects": [
+            { "addTag": "spatial_thinking" },
+            { "addTag": "physics" }
+          ],
+          "next": "college_architecture"
+        },
+        {
+          "text": "偏文科（传播/管理）",
+          "effects": [
+            { "addTag": "communication" },
+            { "addTag": "social_intuition" }
+          ],
+          "next": "college_general"
+        }
+      ]
+    },
+    {
+      "id": "college_architecture",
+      "text": "大学阶段，你进入建筑相关专业。",
+      "choices": [
+        {
+          "text": "背规范，刷题过关",
+          "effects": [
+            { "setStage": "stage_college" },
+            { "addTag": "industry_rules" },
+            { "addTag": "rote_skill" },
+            { "add": { "stress": 15 } }
+          ],
+          "next": "college_choice"
+        },
+        {
+          "text": "深度理解结构与美学",
+          "effects": [
+            { "setStage": "stage_college" },
+            { "addTag": "aesthetics" },
+            { "addTag": "systems_thinking" },
+            { "add": { "stress": 10 } }
+          ],
+          "next": "college_choice"
+        }
+      ]
+    },
+    {
+      "id": "college_general",
+      "text": "大学阶段，你选择偏通用能力的方向。",
+      "choices": [
+        {
+          "text": "积累社交与资源",
+          "effects": [
+            { "setStage": "stage_college" },
+            { "add": { "social": 2 } },
+            { "addTag": "networking" }
+          ],
+          "next": "college_choice"
+        },
+        {
+          "text": "自学硬技能（设计/编程）",
+          "effects": [
+            { "setStage": "stage_college" },
+            { "addTag": "design_thinking" },
+            { "addTag": "problem_solving" }
+          ],
+          "next": "college_choice"
+        }
+      ]
+    },
+    {
+      "id": "college_choice",
+      "text": "大学后期，你有一次关键投入选择。",
+      "choices": [
+        {
+          "text": "参加竞赛/科研",
+          "effects": [
+            { "add": { "stress": 10 } },
+            { "addTag": "deep_work" }
+          ],
+          "next": "college_intern"
+        },
+        {
+          "text": "实习攒经验",
+          "effects": [
+            { "add": { "money": 1000 } },
+            { "addTag": "industry_exposure" }
+          ],
+          "next": "college_intern"
+        }
+      ]
+    },
+    {
+      "id": "college_intern",
+      "text": "一次实习机会摆在眼前。",
+      "choices": [
+        {
+          "text": "去头部公司，学规范",
+          "effects": [
+            { "add": { "stress": 10 } },
+            { "addTag": "industry_rules" }
+          ],
+          "next": "first_job"
+        },
+        {
+          "text": "去小团队，学全流程",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTag": "systems_thinking" }
+          ],
+          "next": "first_job"
+        }
+      ]
+    },
+    {
+      "id": "first_job",
+      "text": "毕业后进入职场。你遇到第一个职业选择。",
+      "choices": [
+        {
+          "text": "加入建筑行业，稳定高薪",
+          "effects": [
+            { "setStage": "stage_career" },
+            { "setFlag": "industry_arch" },
+            { "add": { "money": 3000, "stress": 10 } }
+          ],
+          "next": "first_salary"
+        },
+        {
+          "text": "选择不确定领域（创业/自由职业）",
+          "effects": [
+            { "setStage": "stage_career" },
+            { "setFlag": "industry_uncertain" },
+            { "add": { "money": 800, "stress": 20 } },
+            { "addTrait": "risk_taker" }
+          ],
+          "next": "first_salary"
+        }
+      ]
+    },
+    {
+      "id": "first_salary",
+      "text": "第一份工资到手，你的消费选择是？",
+      "choices": [
+        {
+          "text": "补贴家里",
+          "effects": [
+            { "add": { "money": -500, "social": 1 } },
+            { "addTrait": "filial" }
+          ],
+          "next": "help_elder_event"
+        },
+        {
+          "text": "自我提升（书/课/训练）",
+          "effects": [
+            { "add": { "money": -800 } },
+            { "addTag": "deep_work" }
+          ],
+          "next": "help_elder_event"
+        },
+        {
+          "text": "即时享乐",
+          "effects": [
+            { "add": { "money": -800, "stress": -10 } }
+          ],
+          "next": "help_elder_event"
+        }
+      ]
+    },
+    {
+      "id": "help_elder_event",
+      "text": "路上看到老人摔倒。你怎么办？",
+      "choices": [
+        {
+          "text": "无视离开",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTrait": "coldness" }
+          ],
+          "next": "mid_social"
+        },
+        {
+          "text": "主动扶起",
+          "effects": [
+            { "add": { "social": 1 } },
+            { "addFlag": "good_deed" }
+          ],
+          "next": "elder_branch"
+        },
+        {
+          "text": "录像后扶",
+          "effects": [
+            { "add": { "social": 0 } },
+            { "addTrait": "cautious" }
+          ],
+          "next": "mid_social"
+        }
+      ]
+    },
+    {
+      "id": "elder_branch",
+      "text": "老人家属出现争议。",
+      "choices": [
+        {
+          "text": "赔偿了事",
+          "effects": [
+            { "add": { "money": -2000, "stress": 20 } }
+          ],
+          "next": "mid_social"
+        },
+        {
+          "text": "理性维权",
+          "conditions": [{ "hasTag": "systems_thinking" }],
+          "effects": [
+            { "add": { "money": 1000, "social": 2 } },
+            { "addTrait": "justice" }
+          ],
+          "next": "mid_social"
+        },
+        {
+          "text": "保持沉默",
+          "effects": [
+            { "add": { "stress": 10 } }
+          ],
+          "next": "mid_social"
+        }
+      ]
+    },
+    {
+      "id": "mid_social",
+      "text": "你开始意识到人脉的重要性。",
+      "choices": [
+        {
+          "text": "参加行业聚会",
+          "effects": [
+            { "add": { "social": 2 } },
+            { "addTag": "networking" }
+          ],
+          "next": "skill_focus"
+        },
+        {
+          "text": "继续埋头做事",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTag": "deep_work" }
+          ],
+          "next": "skill_focus"
+        }
+      ]
+    },
+    {
+      "id": "skill_focus",
+      "text": "你决定在职业上加大投入。",
+      "choices": [
+        {
+          "text": "钻研专业深度",
+          "effects": [
+            { "add": { "stress": 10 } },
+            { "addTag": "expertise" }
+          ],
+          "next": "side_project"
+        },
+        {
+          "text": "拓展跨界能力",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTag": "cross_domain" }
+          ],
+          "next": "side_project"
+        }
+      ]
+    },
+    {
+      "id": "side_project",
+      "text": "下班后，你是否发展副业？",
+      "choices": [
+        {
+          "text": "做副业/小项目",
+          "effects": [
+            { "add": { "money": 500, "stress": 10 } },
+            { "addTag": "optionality" }
+          ],
+          "next": "health_check"
+        },
+        {
+          "text": "保持平衡",
+          "effects": [
+            { "add": { "stress": -5 } }
+          ],
+          "next": "health_check"
+        }
+      ]
+    },
+    {
+      "id": "health_check",
+      "text": "长期工作开始影响身体。",
+      "choices": [
+        {
+          "text": "坚持锻炼",
+          "effects": [
+            { "add": { "stress": -5 } },
+            { "addTag": "fitness" }
+          ],
+          "next": "relationship_event"
+        },
+        {
+          "text": "忽视健康",
+          "effects": [
+            { "add": { "stress": 10 } },
+            { "addTrait": "burnout" }
+          ],
+          "next": "relationship_event"
+        }
+      ]
+    },
+    {
+      "id": "relationship_event",
+      "text": "感情与家庭关系进入选择期。",
+      "choices": [
+        {
+          "text": "专注事业，减少情感投入",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTrait": "lonely" }
+          ],
+          "next": "housing_choice"
+        },
+        {
+          "text": "尝试建立稳定关系",
+          "effects": [
+            { "add": { "social": 1 } },
+            { "addTrait": "stable_partner" }
+          ],
+          "next": "housing_choice"
+        }
+      ]
+    },
+    {
+      "id": "housing_choice",
+      "text": "是否背负房贷，换取稳定感？",
+      "choices": [
+        {
+          "text": "贷款买房",
+          "effects": [
+            { "add": { "money": -4000, "stress": 15 } },
+            { "addTrait": "mortgage" }
+          ],
+          "next": "industry_shock"
+        },
+        {
+          "text": "继续租房，保留流动性",
+          "effects": [
+            { "add": { "money": -1000 } },
+            { "addTag": "liquidity" }
+          ],
+          "next": "industry_shock"
+        }
+      ]
+    },
+    {
+      "id": "industry_shock",
+      "text": "行业进入剧烈波动期。",
+      "choices": [
+        {
+          "text": "建筑行业崩溃（黑天鹅）",
+          "conditions": [{ "hasFlag": "industry_arch" }],
+          "effects": [
+            { "setStage": "stage_crisis" },
+            { "add": { "money": -3000, "stress": 30 } },
+            { "disableTag": "industry_rules" }
+          ],
+          "next": "pivot_or_collapse"
+        },
+        {
+          "text": "不确定路线的寒冬",
+          "conditions": [{ "hasFlag": "industry_uncertain" }],
+          "effects": [
+            { "setStage": "stage_crisis" },
+            { "add": { "money": -500, "stress": 10 } }
+          ],
+          "next": "pivot_or_collapse"
+        }
+      ]
+    },
+    {
+      "id": "pivot_or_collapse",
+      "text": "你必须选择应对方式。",
+      "choices": [
+        {
+          "text": "转型：利用通用技能进入新行业",
+          "conditions": [{ "hasTag": "systems_thinking" }],
+          "effects": [
+            { "add": { "money": 2000, "stress": -10 } },
+            { "addTrait": "adaptive" }
+          ],
+          "next": "black_swan_positive"
+        },
+        {
+          "text": "坚持原行业，硬扛",
+          "effects": [
+            { "add": { "money": -1500, "stress": 20 } }
+          ],
+          "next": "black_swan_positive"
+        }
+      ]
+    },
+    {
+      "id": "black_swan_positive",
+      "text": "一次意外机会出现。",
+      "choices": [
+        {
+          "text": "抓住不确定机会",
+          "conditions": [{ "hasTag": "optionality" }],
+          "effects": [
+            { "add": { "money": 4000, "stress": 10 } },
+            { "addTrait": "breakthrough" }
+          ],
+          "next": "stress_check"
+        },
+        {
+          "text": "保守观望",
+          "effects": [
+            { "add": { "money": 500 } }
+          ],
+          "next": "stress_check"
+        }
+      ]
+    },
+    {
+      "id": "stress_check",
+      "text": "压力濒临上限，你的心态会崩溃还是升华？",
+      "choices": [
+        {
+          "text": "崩溃",
+          "conditions": [{ "stressAbove": 80 }],
+          "effects": [
+            { "addTrait": "affliction" },
+            { "add": { "stress": 20 } }
+          ],
+          "next": "ending_collapse"
+        },
+        {
+          "text": "升华",
+          "conditions": [{ "hasTrait": "cognitive_antifragile" }],
+          "effects": [
+            { "addTrait": "virtue" },
+            { "add": { "stress": -50, "money": 2000 } }
+          ],
+          "next": "serendipity_pool"
+        }
+      ]
+    },
+    {
+      "id": "serendipity_pool",
+      "text": "你曾经的善意带来了意外回报。",
+      "choices": [
+        {
+          "text": "善缘兑现：获得新机会",
+          "conditions": [{ "hasFlag": "good_deed" }],
+          "effects": [
+            { "add": { "money": 5000, "social": 3 } }
+          ],
+          "next": "ending_antifragile"
+        },
+        {
+          "text": "无回馈",
+          "effects": [
+            { "add": { "money": 500 } }
+          ],
+          "next": "ending_normal"
+        }
+      ]
+    },
+    {
+      "id": "black_swan_negative_minor",
+      "text": "突发政策调整导致项目延期，你的收入受到影响。",
+      "choices": [
+        {
+          "text": "接受波动，继续前进",
+          "effects": [
+            { "add": { "money": -1500, "stress": 10 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "black_swan_negative_major",
+      "text": "突发行业断崖事件，你的岗位被裁撤。",
+      "choices": [
+        {
+          "text": "压缩开支，寻找新机会",
+          "effects": [
+            { "add": { "money": -3000, "stress": 20 } },
+            { "addTrait": "resilience_test" }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "black_swan_positive_opportunity",
+      "text": "一位关键人物给了你一次罕见的机会。",
+      "choices": [
+        {
+          "text": "抓住机会，全力一搏",
+          "effects": [
+            { "add": { "money": 4000, "stress": 10 } },
+            { "addTrait": "sudden_luck" }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rest_scene",
+      "text": "你精力耗尽，需要休息调整。",
+      "choices": [
+        {
+          "text": "休息恢复体力",
+          "effects": [
+            { "setStat": { "energy": "max_energy" } },
+            { "add": { "stress": -10 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "breakdown_scene",
+      "text": "压力爆表，你的心理状态濒临崩溃。",
+      "choices": [
+        {
+          "text": "短暂休整，缓一口气",
+          "effects": [
+            { "setStat": { "stress": 60 } },
+            { "add": { "energy": -5 } },
+            { "addTrait": "shaken" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "彻底崩溃，游戏结束",
+          "effects": [
+            { "addTrait": "affliction" }
+          ],
+          "next": "ending_collapse"
+        }
+      ]
+    },
+    {
+      "id": "recap_college",
+      "text": "阶段复盘：你进入大学阶段，能力路径开始定型。回顾你的选择，准备迎接更高的复杂度。",
+      "choices": [
+        {
+          "text": "继续",
+          "effects": [],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "recap_career",
+      "text": "阶段复盘：你进入职场阶段，资源与压力开始快速波动。接下来每个选择都会影响韧性上限。",
+      "choices": [
+        {
+          "text": "继续",
+          "effects": [],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "recap_crisis",
+      "text": "阶段复盘：你进入冲击阶段，黑天鹅风险上升。保持流动性与通用技能将成为关键。",
+      "choices": [
+        {
+          "text": "继续",
+          "effects": [],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_school_contest",
+      "text": "学校举办竞赛，你是否报名？",
+      "choices": [
+        {
+          "text": "报名并冲刺",
+          "effects": [
+            { "add": { "stress": 8 } },
+            { "addTag": "deep_work" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "保持稳态",
+          "effects": [
+            { "add": { "stress": -3 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_friend_conflict",
+      "text": "同学关系发生摩擦，你该如何处理？",
+      "choices": [
+        {
+          "text": "主动沟通修复",
+          "effects": [
+            { "add": { "social": 1, "stress": 4 } }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "冷处理，专注自己",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTrait": "withdrawn" }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_freelance",
+      "text": "朋友介绍了一个短期私活，报酬不错，但会占用周末。",
+      "choices": [
+        {
+          "text": "接下私活",
+          "effects": [
+            { "add": { "money": 1200, "stress": 10 } },
+            { "addTag": "optionality" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "拒绝，保留休息",
+          "effects": [
+            { "add": { "stress": -5 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_health",
+      "text": "你连续加班后出现健康警报。",
+      "choices": [
+        {
+          "text": "去体检并调整作息",
+          "effects": [
+            { "add": { "money": -600, "stress": -10 } },
+            { "addTag": "fitness" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "忍一忍，继续扛",
+          "effects": [
+            { "add": { "stress": 15 } },
+            { "addTrait": "burnout" }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_family_help",
+      "text": "家里突然需要你提供经济支持。",
+      "choices": [
+        {
+          "text": "尽力帮助",
+          "effects": [
+            { "add": { "money": -1200, "social": 1 } }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "优先自保",
+          "effects": [
+            { "add": { "social": -1 } },
+            { "addTrait": "guilt" }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_mentor",
+      "text": "一位资深前辈愿意指导你。",
+      "choices": [
+        {
+          "text": "请教学习",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTag": "systems_thinking" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "保持距离",
+          "effects": [
+            { "add": { "social": -1 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_market_dip",
+      "text": "市场震荡，资产缩水。",
+      "choices": [
+        {
+          "text": "减少开支，降低风险",
+          "effects": [
+            { "add": { "money": -800, "stress": 5 } }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "保持投入，等待反弹",
+          "effects": [
+            { "add": { "money": -300, "stress": 10 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_skill_course",
+      "text": "你看到一门提升职业能力的课程。",
+      "choices": [
+        {
+          "text": "报名学习",
+          "effects": [
+            { "add": { "money": -900, "stress": 5 } },
+            { "addTag": "cross_domain" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "暂缓观望",
+          "effects": [
+            { "add": { "stress": -2 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_network_invite",
+      "text": "朋友邀请你参加一个高质量聚会。",
+      "choices": [
+        {
+          "text": "参加并主动交流",
+          "effects": [
+            { "add": { "social": 2, "stress": 5 } },
+            { "addTag": "networking" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "婉拒，保持节奏",
+          "effects": [
+            { "add": { "stress": -3 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_side_income",
+      "text": "你的小项目有了第一笔收益。",
+      "choices": [
+        {
+          "text": "继续投入",
+          "effects": [
+            { "add": { "money": 1500, "stress": 5 } },
+            { "addTag": "optionality" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "见好就收",
+          "effects": [
+            { "add": { "money": 800, "stress": -5 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_city_disruption",
+      "text": "城市突发事件导致工作节奏被打乱。",
+      "choices": [
+        {
+          "text": "灵活调整，远程协作",
+          "effects": [
+            { "add": { "stress": 5 } },
+            { "addTag": "systems_thinking" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "消极等待恢复",
+          "effects": [
+            { "add": { "stress": 10 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_career_reskill",
+      "text": "行业下行期，你考虑是否转型再培训。",
+      "choices": [
+        {
+          "text": "报名转型课程",
+          "effects": [
+            { "add": { "money": -1200, "stress": 8 } },
+            { "addTag": "cross_domain" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "先观望",
+          "effects": [
+            { "add": { "stress": 5 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_emergency_savings",
+      "text": "收入不稳定时，你是否动用应急储蓄？",
+      "choices": [
+        {
+          "text": "动用储蓄稳住节奏",
+          "effects": [
+            { "add": { "money": 1000, "stress": -8 } },
+            { "addTag": "liquidity" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "不动储蓄，靠硬扛",
+          "effects": [
+            { "add": { "stress": 10 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "rand_spotlight",
+      "text": "你的观点在圈内被关注到。",
+      "choices": [
+        {
+          "text": "顺势扩大影响力",
+          "effects": [
+            { "add": { "social": 3, "stress": 5 } },
+            { "addTrait": "public_voice" }
+          ],
+          "next": "__return__"
+        },
+        {
+          "text": "低调处理",
+          "effects": [
+            { "add": { "stress": -2 } }
+          ],
+          "next": "__return__"
+        }
+      ]
+    },
+    {
+      "id": "ending_collapse",
+      "text": "你陷入长期崩溃状态，游戏结束：结局【崩溃】。",
+      "choices": []
+    },
+    {
+      "id": "ending_normal",
+      "text": "你稳住了生活，但并未突破天花板：结局【平庸】。",
+      "choices": []
+    },
+    {
+      "id": "ending_antifragile",
+      "text": "你通过不确定性获得跃迁：结局【反脆弱跃迁】。",
+      "choices": []
+    }
+  ]
+}

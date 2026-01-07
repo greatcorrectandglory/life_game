@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>反脆弱人生 RPG</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div id="game-container">
+    <canvas id="atmosphere" aria-hidden="true"></canvas>
+    <!-- Immersive Map Layer -->
+    <div id="game-world"></div>
+
+    <canvas id="game" aria-label="反脆弱人生RPG"></canvas>
+
+    <!-- Guide Hint -->
+    <div id="guide-overlay">点击场景进行互动 | 目标：完成左侧任务</div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+      <!-- Top HUD: Stats -->
+      <header id="hud-top" class="glass-panel">
+        <div class="stat-group">
+          <div class="stat-item energy-bar">
+            <span class="icon">⚡</span>
+            <div class="bar-bg">
+              <div id="bar-energy" class="bar-fill" style="width: 100%"></div>
+            </div>
+            <span id="text-energy" class="stat-value">6/6</span>
+          </div>
+          <!-- New: Stress/Flow Bar -->
+          <div class="stat-item stress-bar" style="position: relative; margin-left:16px;">
+            <span class="icon" title="压力/心流">🤯</span>
+            <div class="bar-bg" style="width: 140px; position:relative; overflow: visible;">
+              <!-- Overflow visible for markers -->
+              <!-- Flow Zone Marker (40-70%) -->
+              <div class="flow-zone"
+                style="position:absolute; left:40%; width:30%; height:100%; top:0; background: rgba(34, 211, 238, 0.2); border-left:1px dashed #22d3ee; border-right:1px dashed #22d3ee; pointer-events:none; z-index:0;">
+              </div>
+              <div id="bar-stress" class="bar-fill purple"
+                style="width: 0%; z-index:1; position:relative; opacity:0.8;"></div>
+            </div>
+            <span id="text-stress" class="stat-value" style="font-size:12px; min-width:30px;">0%</span>
+            <span id="flow-label" class="flow-tag" style="display:none;">FLOW</span>
+          </div>
+        </div>
+        <div class="stat-group right">
+          <div class="stat-item"><span class="icon">📅</span> <span id="val-turn">第<span
+                id="val-turn-num">1</span>回合</span></div>
+          <div class="stat-item status-chip"><span class="icon">🧭</span> <span id="val-state"
+              class="status-text"></span></div>
+          <button id="btn-achievements" class="hud-btn">成就</button>
+        </div>
+      </header>
+
+      <!-- Left HUD: Quests -->
+      <aside id="hud-quests" class="glass-panel">
+        <h3>当前目标</h3>
+        <div id="quest-list"></div>
+      </aside>
+
+      <!-- Left HUD: Achievements -->
+      <aside id="hud-achievements-mini" class="glass-panel">
+        <h3>个人成就</h3>
+        <div id="hud-core">
+          <div class="core-title">核心面板</div>
+          <div id="core-status" class="core-status"></div>
+          <div class="core-grid">
+            <div class="core-group">
+              <div class="core-group-title">身体</div>
+              <div id="core-health"></div>
+              <div id="core-stress"></div>
+            </div>
+            <div class="core-group">
+              <div class="core-group-title">学习</div>
+              <div id="core-knowledge"></div>
+              <div id="core-skill"></div>
+            </div>
+            <div class="core-group">
+              <div class="core-group-title">社交</div>
+              <div id="core-social"></div>
+              <div id="core-creativity"></div>
+            </div>
+            <div class="core-group">
+              <div class="core-group-title">情绪</div>
+              <div id="core-mood"></div>
+              <div id="core-money"></div>
+            </div>
+          </div>
+          <div class="core-divider"></div>
+          <div class="core-title">本回合收益</div>
+          <div id="core-action" class="core-action"></div>
+          <div id="core-gains" class="core-gains"></div>
+        </div>
+        <div id="achievement-mini-list"></div>
+      </aside>
+
+      <!-- Right HUD: Skills/Info -->
+      <aside id="hud-skills" class="glass-panel">
+        <h3>技能树</h3>
+        <div id="skill-list"></div>
+      </aside>
+
+      <!-- Bottom HUD: Logs & Story -->
+      <footer id="hud-log" class="glass-panel">
+        <div id="story-display"></div>
+        <div id="log-list"></div>
+      </footer>
+
+      <!-- Combat Overlay (Hidden by default) -->
+      <div id="combat-overlay" class="overlay hidden">
+        <div class="combat-container glass-panel">
+          <div id="combat-enemy-area">
+            <div class="enemy-avatar"></div>
+            <div class="enemy-info">
+              <h2 id="enemy-name">BOSS NAME</h2>
+              <div class="bar-bg hp-bar">
+                <div id="enemy-hp-bar" class="bar-fill red"></div>
+              </div>
+              <p id="enemy-status">Status text...</p>
+            </div>
+          </div>
+
+          <div id="combat-log-area"></div>
+
+          <div id="combat-player-area">
+            <div class="player-stats">
+              <div>HP <div class="bar-bg sm">
+                  <div id="player-hp-bar" class="bar-fill red"></div>
+                </div> <span id="player-hp-text"></span></div>
+              <div>MP <div class="bar-bg sm">
+                  <div id="player-mp-bar" class="bar-fill blue"></div>
+                </div> <span id="player-mp-text"></span></div>
+            </div>
+            <div id="combat-actions"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fullscreen Celebration/Notification -->
+      <div id="celebration" class="celebration"></div>
+
+      <!-- FX Layer -->
+      <div id="fx-layer" aria-hidden="true"></div>
+
+      <!-- Achievements Modal -->
+      <div id="achievements-modal" class="overlay hidden">
+        <div class="glass-panel action-picker-panel">
+          <div class="action-picker-title">成就</div>
+          <p class="action-picker-subtitle">完成任务可获得称号。</p>
+          <div class="profile-panel">
+            <div class="profile-section-title">个人面板</div>
+            <div id="profile-content"></div>
+          </div>
+          <div id="achievements-list" class="achievement-list"></div>
+          <div style="margin-top:16px">
+            <button id="achievements-close" class="btn-danger">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+
+</html>

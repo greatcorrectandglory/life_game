@@ -1,0 +1,2214 @@
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const celebrationEl = document.getElementById("celebration");
+
+import { createCombatState, executeAttack, executeDefend, executeEscape, executeSkill, executeEnemyTurn, applyRewards } from "./src/core/combat.js";
+import { getRandomEnemy } from "./src/data/enemies.js";
+import { getAvailableSkills, getSkillById } from "./src/data/skills.js";
+import { updateCombatUI, showSkillSelect } from "./src/ui/combatUI.js";
+import { initAtmosphere } from "./src/ui/atmosphere.js";
+import { initUiFx, enableGlobalRipples, spawnFloatingText, updateRollingNumber } from "./src/ui/ui_manager.js";
+import { getState } from "./src/core/state.js";
+import { updateEconomy, getWorkMultiplier, getEconomyLabel } from "./src/core/economy.js";
+import { resolveStress } from "./src/core/events.js";
+
+const state = getState();
+
+const CHAPTERS = [
+  { id: "primary", name: "小学期", turns: 3 },
+  { id: "middle", name: "初中期", turns: 3 },
+  { id: "high", name: "高中期", turns: 3 },
+  { id: "college", name: "大学期", turns: 3 },
+  { id: "career", name: "职场期", turns: 3 },
+  { id: "midlife", name: "中年期", turns: 3 },
+  { id: "late", name: "晚年期", turns: 3 }
+];
+
+const TALENTS = [
+  { id: "rational", name: "理性", desc: "提升学习与规划效率" },
+  { id: "empathic", name: "感性", desc: "提升社交与创作表现" },
+  { id: "grit", name: "坚韧", desc: "提升健康与抗压" }
+];
+
+const SKILL_TREE = {
+  academic: {
+    name: "学术",
+    skills: [
+      { id: "logic", name: "逻辑思维", max: 3, effect: "学习收益 +" },
+      { id: "research", name: "研究方法", max: 3, effect: "任务效率 +" },
+      { id: "foundation", name: "基础学科", max: 3, effect: "知识储备 +" }
+    ]
+  },
+  career: {
+    name: "职场",
+    skills: [
+      { id: "execution", name: "执行力", max: 3, effect: "工作收益 +" },
+      { id: "planning", name: "项目管理", max: 3, effect: "稳定性 +" },
+      { id: "insight", name: "行业洞察", max: 3, effect: "金钱收益 +" }
+    ]
+  },
+  social: {
+    name: "社交",
+    skills: [
+      { id: "communication", name: "沟通表达", max: 3, effect: "社交收益 +" },
+      { id: "trust", name: "信任维护", max: 3, effect: "关系稳定 +" },
+      { id: "leadership", name: "领导力", max: 3, effect: "任务奖励 +" }
+    ]
+  },
+  creative: {
+    name: "创作",
+    skills: [
+      { id: "story", name: "叙事表达", max: 3, effect: "灵感收益 +" },
+      { id: "aesthetic", name: "视觉审美", max: 3, effect: "创作收益 +" },
+      { id: "craft", name: "创意实践", max: 3, effect: "完成质量 +" }
+    ]
+  },
+  health: {
+    name: "健康",
+    skills: [
+      { id: "fitness", name: "体能管理", max: 3, effect: "健康上限 +" },
+      { id: "stress", name: "压力调节", max: 3, effect: "情绪稳定 +" },
+      { id: "habit", name: "生活习惯", max: 3, effect: "恢复效率 +" }
+    ]
+  }
+};
+
+const ACTIONS = [
+  { id: "study_read", name: "阅读学习", desc: "稳步积累知识", cost: 1, effects: { knowledge: 4, mood: 0 } },
+  { id: "study_drill", name: "刷题训练", desc: "强化技能与效率", cost: 2, effects: { skill: 4, mood: -1 } },
+  { id: "study_project", name: "实践项目", desc: "知识与技能并进", cost: 2, effects: { knowledge: 2, skill: 3, mood: -1 } },
+  { id: "exercise_run", name: "有氧训练", desc: "提升体能与情绪", cost: 1, effects: { health: 3, mood: 2 } },
+  { id: "exercise_strength", name: "力量训练", desc: "提升健康与韧性", cost: 2, effects: { health: 4, mood: 0 } },
+  { id: "exercise_yoga", name: "拉伸冥想", desc: "恢复与稳定情绪", cost: 1, effects: { mood: 3, health: 1 } },
+  { id: "social_friend", name: "朋友聚会", desc: "维持关系与心情", cost: 1, effects: { social: 2, mood: 2 } },
+  { id: "social_network", name: "行业社交", desc: "拓展机会与资源", cost: 2, effects: { social: 3, money: 1, mood: -1 } },
+  { id: "social_mentor", name: "请教导师", desc: "提升视野与能力", cost: 2, effects: { knowledge: 2, social: 2 } },
+  { id: "work_focus", name: "专注输出", desc: "高强度完成任务", cost: 2, effects: { money: 5, mood: -2 } },
+  { id: "work_collab", name: "团队协作", desc: "推进项目与关系", cost: 1, effects: { money: 3, social: 1, mood: -1 } },
+  { id: "work_reflect", name: "复盘规划", desc: "稳住节奏与效率", cost: 1, effects: { money: 2, mood: 1 } },
+  { id: "create_draft", name: "草稿创作", desc: "积累灵感与素材", cost: 1, effects: { creativity: 3, mood: 1 } },
+  { id: "create_polish", name: "深度打磨", desc: "提升作品质量", cost: 2, effects: { creativity: 4, mood: -1 } },
+  { id: "create_publish", name: "发布分享", desc: "获得认可与反馈", cost: 2, effects: { creativity: 2, social: 2, mood: 1 } },
+  { id: "rest_sleep", name: "充分睡眠", desc: "恢复体力与情绪", cost: 2, effects: { mood: 3, health: 2 } },
+  { id: "rest_walk", name: "轻松散步", desc: "清理思绪与压力", cost: 1, effects: { mood: 2, health: 1 } },
+  { id: "rest_hobby", name: "兴趣放松", desc: "补充能量与灵感", cost: 1, effects: { mood: 2, creativity: 1 } }
+];
+
+const ACTION_GROUPS = {
+  study: {
+    title: "学习方式",
+    subtitle: "选择你要用的学习方法。",
+    actions: ["study_read", "study_drill", "study_project"]
+  },
+  exercise: {
+    title: "运动方式",
+    subtitle: "不同训练，带来不同收益。",
+    actions: ["exercise_run", "exercise_strength", "exercise_yoga"]
+  },
+  social: {
+    title: "社交方式",
+    subtitle: "不同对象，影响不同方向。",
+    actions: ["social_friend", "social_network", "social_mentor"]
+  },
+  work: {
+    title: "工作方式",
+    subtitle: "选择你的工作节奏。",
+    actions: ["work_focus", "work_collab", "work_reflect"]
+  },
+  create: {
+    title: "创作方式",
+    subtitle: "选择你的创作路径。",
+    actions: ["create_draft", "create_polish", "create_publish"]
+  },
+  rest: {
+    title: "休息方式",
+    subtitle: "选择你的恢复方式。",
+    actions: ["rest_sleep", "rest_walk", "rest_hobby"]
+  }
+};
+
+const MAIN_QUESTS = {
+  primary: {
+    title: "小学：建立基础",
+    desc: "运动与基础思维训练，建立节奏。",
+    objectives: [
+      { type: "stat", key: "health", target: 10 },
+      { type: "stat", key: "knowledge", target: 8 }
+    ],
+    rewards: { skillPoints: 1, mood: 2 }
+  },
+  middle: {
+    title: "初中：发现方法",
+    desc: "找到适合自己的学习方式。",
+    objectives: [
+      { type: "stat", key: "skill", target: 10 },
+      { type: "action", key: "study", target: 4 }
+    ],
+    rewards: { skillPoints: 1, mood: 2 }
+  },
+  high: {
+    title: "高中：明确路线",
+    desc: "完成一次清晰选择。",
+    objectives: [
+      { type: "stat", key: "knowledge", target: 14 },
+      { type: "stat", key: "mood", target: 8 }
+    ],
+    rewards: { skillPoints: 1, talentPoints: 1 }
+  },
+  college: {
+    title: "大学：沉淀能力",
+    desc: "完成一次核心能力突破。",
+    objectives: [
+      { type: "stat", key: "skill", target: 16 },
+      { type: "action", key: "create", target: 3 }
+    ],
+    rewards: { skillPoints: 2 }
+  },
+  career: {
+    title: "职场：形成资本",
+    desc: "稳住收入与关系。",
+    objectives: [
+      { type: "stat", key: "money", target: 16 },
+      { type: "stat", key: "social", target: 12 }
+    ],
+    rewards: { skillPoints: 2 }
+  },
+  midlife: {
+    title: "中年：守住节奏",
+    desc: "保持稳定与韧性。",
+    objectives: [
+      { type: "stat", key: "health", target: 16 },
+      { type: "stat", key: "mood", target: 12 }
+    ],
+    rewards: { skillPoints: 2 }
+  },
+  late: {
+    title: "晚年：留下作品",
+    desc: "保持心态并完成输出。",
+    objectives: [
+      { type: "stat", key: "creativity", target: 12 },
+      { type: "stat", key: "social", target: 14 }
+    ],
+    rewards: { skillPoints: 2 }
+  }
+};
+
+const SIDE_QUESTS = {
+  primary: [
+    {
+      title: "发现兴趣",
+      desc: "多尝试不同活动。",
+      objectives: [{ type: "action", key: "study", target: 2 }],
+      rewards: { mood: 2 }
+    },
+    {
+      title: "体能小目标",
+      desc: "坚持运动。",
+      objectives: [{ type: "action", key: "exercise", target: 2 }],
+      rewards: { health: 2 }
+    }
+  ],
+  middle: [
+    {
+      title: "社交尝试",
+      desc: "主动参与一次社交。",
+      objectives: [{ type: "action", key: "social", target: 2 }],
+      rewards: { social: 2 }
+    },
+    {
+      title: "复盘学习",
+      desc: "完成一次复盘。",
+      objectives: [{ type: "stat", key: "knowledge", target: 12 }],
+      rewards: { skill: 2 }
+    }
+  ],
+  high: [
+    {
+      title: "阶段冲刺",
+      desc: "连续学习。",
+      objectives: [{ type: "action", key: "study", target: 3 }],
+      rewards: { knowledge: 2 }
+    },
+    {
+      title: "情绪修复",
+      desc: "保持休息节奏。",
+      objectives: [{ type: "action", key: "rest", target: 2 }],
+      rewards: { mood: 2 }
+    }
+  ],
+  college: [
+    {
+      title: "项目挑战",
+      desc: "完成小型项目。",
+      objectives: [{ type: "action", key: "create", target: 3 }],
+      rewards: { creativity: 2 }
+    },
+    {
+      title: "人脉积累",
+      desc: "建立信任关系。",
+      objectives: [{ type: "stat", key: "social", target: 14 }],
+      rewards: { social: 2 }
+    }
+  ],
+  career: [
+    {
+      title: "副业探索",
+      desc: "尝试额外收入来源。",
+      objectives: [{ type: "action", key: "work", target: 3 }],
+      rewards: { money: 3 }
+    },
+    {
+      title: "行业学习",
+      desc: "补足行业知识。",
+      objectives: [{ type: "stat", key: "knowledge", target: 18 }],
+      rewards: { skill: 2 }
+    }
+  ],
+  midlife: [
+    {
+      title: "生活重构",
+      desc: "改善健康与情绪。",
+      objectives: [{ type: "action", key: "exercise", target: 3 }],
+      rewards: { health: 3 }
+    },
+    {
+      title: "关系维护",
+      desc: "稳定社交。",
+      objectives: [{ type: "stat", key: "social", target: 16 }],
+      rewards: { social: 2 }
+    }
+  ],
+  late: [
+    {
+      title: "回忆整理",
+      desc: "完成一次个人总结。",
+      objectives: [{ type: "action", key: "create", target: 2 }],
+      rewards: { creativity: 2 }
+    },
+    {
+      title: "家族连接",
+      desc: "加强关系网络。",
+      objectives: [{ type: "action", key: "social", target: 2 }],
+      rewards: { social: 2 }
+    }
+  ]
+};
+
+const STORY_CHAINS = {
+  primary: {
+    title: "启蒙之路",
+    steps: [
+      {
+        text: "你第一次意识到，坚持运动能让你更专注。",
+        objectives: [{ type: "action", key: "exercise", target: 2 }],
+        reward: { mood: 2 }
+      },
+      {
+        text: "你在一次课堂上举手发言，开始建立自信。",
+        objectives: [{ type: "action", key: "study", target: 3 }],
+        reward: { knowledge: 2 }
+      }
+    ]
+  },
+  middle: {
+    title: "方法与友伴",
+    steps: [
+      {
+        text: "你和朋友一起完成了一个小项目。",
+        objectives: [{ type: "action", key: "social", target: 2 }],
+        reward: { social: 2 }
+      },
+      {
+        text: "你开始形成自己的学习方法。",
+        objectives: [{ type: "action", key: "study", target: 3 }],
+        reward: { skill: 2 }
+      }
+    ]
+  },
+  high: {
+    title: "路线抉择",
+    steps: [
+      {
+        text: "一次关键考试让你重新审视目标。",
+        objectives: [{ type: "stat", key: "knowledge", target: 14 }],
+        reward: { mood: 2 }
+      },
+      {
+        text: "你决定下一步的方向。",
+        objectives: [{ type: "stat", key: "mood", target: 8 }],
+        reward: { skillPoints: 1 }
+      }
+    ]
+  },
+  college: {
+    title: "能力试炼",
+    steps: [
+      {
+        text: "你参与了一次跨学科的挑战。",
+        objectives: [{ type: "action", key: "create", target: 3 }],
+        reward: { creativity: 2 }
+      },
+      {
+        text: "你开始建立自己的核心竞争力。",
+        objectives: [{ type: "stat", key: "skill", target: 16 }],
+        reward: { skillPoints: 1 }
+      }
+    ]
+  },
+  career: {
+    title: "现实试炼",
+    steps: [
+      {
+        text: "你第一次感受到现金流的重要。",
+        objectives: [{ type: "stat", key: "money", target: 16 }],
+        reward: { money: 2 }
+      },
+      {
+        text: "你需要学会维持关系与资源。",
+        objectives: [{ type: "stat", key: "social", target: 12 }],
+        reward: { social: 2 }
+      }
+    ]
+  },
+  midlife: {
+    title: "韧性重构",
+    steps: [
+      {
+        text: "你开始重新整理生活的节奏。",
+        objectives: [{ type: "stat", key: "health", target: 16 }],
+        reward: { health: 2 }
+      },
+      {
+        text: "你学会用心态对抗变化。",
+        objectives: [{ type: "stat", key: "mood", target: 12 }],
+        reward: { mood: 2 }
+      }
+    ]
+  },
+  late: {
+    title: "回响与遗产",
+    steps: [
+      {
+        text: "你整理自己的经验，希望留下些什么。",
+        objectives: [{ type: "stat", key: "creativity", target: 12 }],
+        reward: { creativity: 2 }
+      },
+      {
+        text: "你开始把影响力传递下去。",
+        objectives: [{ type: "stat", key: "social", target: 14 }],
+        reward: { social: 2 }
+      }
+    ]
+  }
+};
+
+const TOTAL_TURNS = CHAPTERS.reduce((sum, chapter) => sum + chapter.turns, 0);
+
+const ACHIEVEMENTS = [
+  { id: "main_first", name: "主线新星", desc: "完成任意主线任务。", title: "主线新星" },
+  { id: "main_three", name: "主线推进者", desc: "完成3个主线任务。", title: "推进者" },
+  { id: "side_first", name: "支线探索者", desc: "完成任意支线任务。", title: "探索者" },
+  { id: "chain_first", name: "剧情见证者", desc: "完成任意剧情步骤。", title: "见证者" }
+];
+
+const STAGE_PROMPTS = {
+  primary: "基础打牢后，学习节奏开始成形。",
+  middle: "方法初成，你开始追求更清晰的提升。",
+  high: "目标收束，你的选择开始决定方向。",
+  college: "能力沉淀，实践变得更重要。",
+  career: "资源与影响力开始转化为成果。",
+  midlife: "韧性重构，价值与节奏重新平衡。",
+  late: "回响与遗产，你的经验开始发光。"
+};
+
+const BLACK_SWAN_EVENTS = {
+  primary: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：家中变故",
+      text: "父母工作变动，家里需要重新安排节奏。",
+      rewards: { mood: -2, stress: 2 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：生活波动",
+      text: "家庭开支增加，你的生活节奏被打乱。",
+      rewards: { mood: -1, stress: 1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：家庭转机",
+      text: "父母获得新机会，家庭氛围明显改善。",
+      rewards: { mood: 2, social: 1 }
+    }
+  ],
+  middle: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：情感挫折",
+      text: "一次表白被拒，情绪受到了冲击。",
+      rewards: { mood: -2, stress: 2 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：朋友圈风波",
+      text: "朋友圈出现误会，你的社交节奏被打乱。",
+      rewards: { mood: -1, social: -1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：关键认可",
+      text: "被重要的人认可，你的信心大增。",
+      rewards: { mood: 2, social: 1 }
+    }
+  ],
+  high: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：政策变动",
+      text: "升学政策突变，压力骤增。",
+      rewards: { mood: -2, stress: 2 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：竞争升级",
+      text: "周围竞争骤然加剧，你需要调整节奏。",
+      rewards: { mood: -1, stress: 1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：机会窗口",
+      text: "一次竞赛机会让你脱颖而出。",
+      rewards: { knowledge: 2, mood: 1 }
+    }
+  ],
+  college: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：行业断层",
+      text: "突发行业冲击，项目被迫暂停。",
+      rewards: { money: -3, mood: -2, health: -1 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：节奏受阻",
+      text: "外部环境变化让你不得不调整节奏。",
+      rewards: { money: -2, mood: -1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：窗口机会",
+      text: "变局带来机会，你抓住了关键入口。",
+      rewards: { money: 3, skill: 1, social: 1 }
+    }
+  ],
+  career: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：行业断层",
+      text: "突发行业冲击，项目被迫暂停。",
+      rewards: { money: -3, mood: -2, health: -1 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：节奏受阻",
+      text: "外部环境变化让你不得不调整节奏。",
+      rewards: { money: -2, mood: -1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：窗口机会",
+      text: "变局带来机会，你抓住了关键入口。",
+      rewards: { money: 3, skill: 1, social: 1 }
+    }
+  ],
+  midlife: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：行业断层",
+      text: "突发行业冲击，项目被迫暂停。",
+      rewards: { money: -3, mood: -2, health: -1 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：节奏受阻",
+      text: "外部环境变化让你不得不调整节奏。",
+      rewards: { money: -2, mood: -1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：窗口机会",
+      text: "变局带来机会，你抓住了关键入口。",
+      rewards: { money: 3, skill: 1, social: 1 }
+    }
+  ],
+  late: [
+    {
+      id: "negative_major",
+      title: "黑天鹅：行业断层",
+      text: "突发行业冲击，项目被迫暂停。",
+      rewards: { money: -3, mood: -2, health: -1 }
+    },
+    {
+      id: "negative_minor",
+      title: "黑天鹅：节奏受阻",
+      text: "外部环境变化让你不得不调整节奏。",
+      rewards: { money: -2, mood: -1 }
+    },
+    {
+      id: "positive_opportunity",
+      title: "黑天鹅：窗口机会",
+      text: "变局带来机会，你抓住了关键入口。",
+      rewards: { money: 3, skill: 1, social: 1 }
+    }
+  ]
+};
+
+const player = {
+  x: 160,
+  y: 160,
+  size: 18,
+  speed: 160
+};
+
+// Map Locations: Centered Layout
+const startX = (window.innerWidth - 800) / 2;
+const startY = 140; // Shift down to avoid HUD overlap
+
+const zones = [
+  { id: "study", name: "学习区", x: startX + 50, y: startY, w: 120, h: 140, img: "assets/loc_study.png" },
+  { id: "exercise", name: "运动区", x: startX + 250, y: startY - 20, w: 120, h: 140, img: "assets/loc_exercise.png" },
+  { id: "social", name: "社交区", x: startX + 450, y: startY + 10, w: 120, h: 140, img: "assets/loc_social.png" },
+
+  { id: "work", name: "工作区", x: startX + 80, y: startY + 200, w: 120, h: 140, img: "assets/loc_work.png" },
+  { id: "create", name: "创作区", x: startX + 280, y: startY + 220, w: 120, h: 140, img: "assets/loc_create.png" },
+  { id: "rest", name: "休息区", x: startX + 480, y: startY + 190, w: 120, h: 140, img: "assets/loc_rest.png" },
+
+  { id: "arena", name: "挑战场", x: startX + 650, y: startY + 100, w: 140, h: 160, img: "assets/loc_arena.png" },
+
+  // End Turn Button - Moved to bottom right
+  { id: "end", name: "结束回合", x: startX + 700, y: startY + 320, w: 120, h: 60, color: "#fbbf24" }
+];
+
+let activeZones = zones;
+
+const input = new Set();
+let lastTime = 0;
+const uiButtons = []; // Legacy array, kept empty now
+
+const addButton = (x, y, w, h, handler) => {
+  uiButtons.push({ x, y, w, h, handler });
+};
+
+const resize = () => {
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(window.innerWidth * ratio);
+  canvas.height = Math.floor(window.innerHeight * ratio);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+};
+
+const pushStory = (text) => {
+  if (!text) {
+    return;
+  }
+  state.storyQueue.push(text);
+};
+
+const addLog = (text) => {
+  state.log.unshift(text);
+  if (state.log.length > 8) {
+    state.log.pop();
+  }
+};
+
+const REWARD_LABELS = {
+  skillPoints: "技能点",
+  talentPoints: "天赋点",
+  money: "金钱",
+  health: "健康",
+  mood: "情绪",
+  knowledge: "知识",
+  skill: "技能",
+  creativity: "创意",
+  social: "社交"
+};
+
+const getRewardEntries = (rewards) => {
+  if (!rewards) {
+    return [];
+  }
+  return Object.entries(rewards)
+    .filter(([, value]) => value !== 0 && value !== null && value !== undefined)
+    .map(([key, value]) => ({
+      key,
+      value,
+      label: REWARD_LABELS[key] || key
+    }));
+};
+
+const showRewardFly = (rewards) => {
+  const entries = getRewardEntries(rewards);
+  if (!entries.length) {
+    return;
+  }
+  let container = document.getElementById("reward-fly");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "reward-fly";
+    container.className = "reward-fly-container";
+    document.body.appendChild(container);
+  }
+  entries.forEach((entry, index) => {
+    const item = document.createElement("div");
+    item.className = "reward-fly";
+    const sign = entry.value > 0 ? "+" : "";
+    item.textContent = `${sign}${entry.value} ${entry.label}`;
+    item.style.top = `${42 + index * 6}%`;
+    container.appendChild(item);
+    window.setTimeout(() => item.remove(), 1300);
+  });
+};
+
+const flashHUD = () => {
+  const targets = [
+    document.getElementById("hud-top"),
+    document.getElementById("hud-quests"),
+    document.getElementById("hud-skills")
+  ];
+  targets.forEach((el) => {
+    if (!el) {
+      return;
+    }
+    el.classList.remove("hud-flash");
+    el.offsetHeight;
+    el.classList.add("hud-flash");
+  });
+};
+
+const showCelebration = (title, subtitle, rewards) => {
+  if (!celebrationEl) {
+    return;
+  }
+  const rewardEntries = getRewardEntries(rewards);
+  const rewardHTML = rewardEntries.length
+    ? `<div class="celebration__rewards">${rewardEntries.map((entry) => {
+        const sign = entry.value > 0 ? "+" : "";
+        return `<div class="celebration__reward">${sign}${entry.value} ${entry.label}</div>`;
+      }).join("")}</div>`
+    : "";
+  celebrationEl.innerHTML = `
+    <div class="celebration__card">
+      <div>${title}</div>
+      <div class="celebration__spark">${subtitle || ""}</div>
+      ${rewardHTML}
+    </div>
+  `;
+  celebrationEl.classList.add("celebration--show");
+  window.clearTimeout(showCelebration._timer);
+  showCelebration._timer = window.setTimeout(() => {
+    celebrationEl.classList.remove("celebration--show");
+    window.clearTimeout(showCelebration._clearTimer);
+    showCelebration._clearTimer = window.setTimeout(() => {
+      celebrationEl.innerHTML = "";
+    }, 350);
+  }, 1200);
+
+  if (rewardEntries.length) {
+    showRewardFly(rewards);
+    flashHUD();
+  }
+};
+
+const unlockAchievement = (achievementId) => {
+  if (state.achievements[achievementId]) {
+    return;
+  }
+  const achievement = ACHIEVEMENTS.find((item) => item.id === achievementId);
+  if (!achievement) {
+    return;
+  }
+  state.achievements[achievementId] = true;
+  state.title = achievement.title;
+  addLog(`成就达成：${achievement.name}`);
+  showCelebration("成就达成", achievement.name);
+  updateAchievementsUI();
+};
+
+const updateAchievementsUI = () => {
+  const listEl = document.getElementById("achievements-list");
+  if (!listEl) {
+    return;
+  }
+  listEl.innerHTML = ACHIEVEMENTS.map((achievement) => {
+    const unlocked = Boolean(state.achievements[achievement.id]);
+    return `
+      <div class="achievement-card ${unlocked ? "" : "locked"}">
+        <div class="achievement-title">${achievement.name}${unlocked ? " · 已获得" : ""}</div>
+        <div class="achievement-desc">${achievement.desc}</div>
+        <div class="achievement-desc">称号：${achievement.title}</div>
+      </div>
+    `;
+  }).join("");
+};
+
+const getRewardListHTML = (rewards) => {
+  const entries = getRewardEntries(rewards);
+  if (!entries.length) {
+    return "";
+  }
+  return `
+    <div class="celebration__rewards">
+      ${entries.map((entry) => {
+        const sign = entry.value > 0 ? "+" : "";
+        return `<div class="celebration__reward">${sign}${entry.value} ${entry.label}</div>`;
+      }).join("")}
+    </div>
+  `;
+};
+
+const showInteractiveModal = ({ title, bodyLines, rewards, primaryLabel = "继续" }) => {
+  const existing = document.getElementById("interactive-modal");
+  if (existing) {
+    existing.remove();
+  }
+  state.modalLock = true;
+  const overlay = document.createElement("div");
+  overlay.id = "interactive-modal";
+  overlay.className = "overlay";
+  const bodyHTML = (Array.isArray(bodyLines) ? bodyLines : [bodyLines])
+    .filter(Boolean)
+    .map((line) => `<p>${line}</p>`)
+    .join("");
+  overlay.innerHTML = `
+    <div class="glass-panel action-picker-panel">
+      <div class="action-picker-title">${title}</div>
+      <div class="modal-body">${bodyHTML}${getRewardListHTML(rewards)}</div>
+      <div class="modal-actions">
+        <button id="interactive-close" class="btn-danger">${primaryLabel}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const closeBtn = document.getElementById("interactive-close");
+  if (closeBtn) {
+    attachTapAction(closeBtn, () => {
+      overlay.remove();
+      state.modalLock = false;
+    });
+  }
+};
+
+const triggerGameOver = () => {
+  if (state.gameOver) {
+    return;
+  }
+  state.gameOver = true;
+  const existing = document.getElementById("game-over-modal");
+  if (existing) {
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.id = "game-over-modal";
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="glass-panel action-picker-panel">
+      <div class="action-picker-title">压力崩溃</div>
+      <p class="action-picker-subtitle">你在高压下失去了节奏，需要停下来重新调整。</p>
+      <div style="margin-top:16px">
+        <button id="btn-restart" class="btn-danger">重新开始</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const restartBtn = document.getElementById("btn-restart");
+  if (restartBtn) {
+    attachTapAction(restartBtn, () => {
+      window.location.reload();
+    });
+  }
+};
+
+const initChapter = () => {
+  const chapter = CHAPTERS[state.chapterIndex];
+  state.chapterTurn = 1;
+  state.energy = state.energyMax;
+  state.actionCounts = {};
+  const main = MAIN_QUESTS[chapter.id];
+  const sidePool = SIDE_QUESTS[chapter.id] || [];
+  state.quests.main = main ? { ...main, done: false } : null;
+  state.quests.side = sidePool.sort(() => Math.random() - 0.5).slice(0, 2);
+  state.quests.completed = [];
+  const chain = STORY_CHAINS[chapter.id];
+  state.chain = chain
+    ? { title: chain.title, index: 0, steps: chain.steps.map((step) => ({ ...step })) }
+    : { title: null, index: 0, steps: [] };
+  addLog(`进入${chapter.name}。`);
+  pushStory(`${chapter.name}开启：${MAIN_QUESTS[chapter.id]?.desc || ""}`.trim());
+  initZones();
+  updateStaticUI(); // Refresh UI after chapter init
+};
+
+const randomTalents = () => {
+  TALENTS.forEach((talent) => {
+    state.talents[talent.id] = Math.floor(Math.random() * 3);
+  });
+  state.talentMode = "ready";
+  addLog("天赋随机生成。");
+  initChapter();
+  updateStaticUI(); // Refresh quest list after initialization
+};
+
+const applyTalentDraft = () => {
+  state.talents = { ...state.talentDraft };
+  state.talentMode = "ready";
+  addLog("天赋已分配。");
+  initChapter();
+};
+
+const getActionGroupId = (actionId) => actionId.split("_")[0];
+
+const getTalentBonus = (actionId) => {
+  const groupId = getActionGroupId(actionId);
+  const { rational, empathic, grit } = state.talents;
+  if (groupId === "study") {
+    return 1 + rational * 0.08;
+  }
+  if (groupId === "social" || groupId === "create") {
+    return 1 + empathic * 0.08;
+  }
+  if (groupId === "exercise" || groupId === "rest") {
+    return 1 + grit * 0.08;
+  }
+  return 1;
+};
+
+const getSkillLevel = (id) => state.skills[id] || 0;
+
+const getSkillBonus = (actionId) => {
+  const groupId = getActionGroupId(actionId);
+  const bonuses = {
+    study: getSkillLevel("logic") * 0.05 + getSkillLevel("foundation") * 0.04,
+    work: getSkillLevel("execution") * 0.06 + getSkillLevel("insight") * 0.04,
+    social: getSkillLevel("communication") * 0.05 + getSkillLevel("trust") * 0.04,
+    create: getSkillLevel("story") * 0.05 + getSkillLevel("aesthetic") * 0.04,
+    exercise: getSkillLevel("fitness") * 0.05 + getSkillLevel("habit") * 0.04,
+    rest: getSkillLevel("stress") * 0.05
+  };
+  return 1 + (bonuses[groupId] || 0);
+};
+
+const getStatusMeta = () => {
+  const mood = state.stats.mood || 0;
+  const health = state.stats.health || 0;
+  const moodMeta = mood <= 4
+    ? { label: "紧绷", color: "#f97316" }
+    : mood <= 8
+      ? { label: "平稳", color: "#22d3ee" }
+      : { label: "高涨", color: "#fbbf24" };
+
+  const healthMeta = health <= 5
+    ? { label: "虚弱", color: "#ef4444" }
+    : health <= 10
+      ? { label: "稳健", color: "#22c55e" }
+      : { label: "强盛", color: "#60a5fa" };
+
+  let overall = "稳定";
+  let glow = "#22d3ee";
+  if (mood <= 4 || health <= 5) {
+    overall = "失衡";
+    glow = "#f97316";
+  } else if (mood >= 9 && health >= 11) {
+    overall = "爆发";
+    glow = "#fbbf24";
+  } else if (mood >= 9 || health >= 11) {
+    overall = "上扬";
+    glow = "#38bdf8";
+  }
+
+  return {
+    overall,
+    moodLabel: moodMeta.label,
+    healthLabel: healthMeta.label,
+    glow,
+    ring: healthMeta.color
+  };
+};
+
+const STUDY_MILESTONES = [
+  { count: 0, label: "起步" },
+  { count: 3, label: "基础打牢" },
+  { count: 6, label: "方法成形" },
+  { count: 10, label: "体系化" },
+  { count: 15, label: "游刃有余" }
+];
+
+const getStudyProgress = () => {
+  const count = state.actionCounts.study || 0;
+  let current = STUDY_MILESTONES[0];
+  let next = STUDY_MILESTONES[STUDY_MILESTONES.length - 1];
+  STUDY_MILESTONES.forEach((item) => {
+    if (count >= item.count) {
+      current = item;
+    }
+  });
+  const currentIndex = STUDY_MILESTONES.indexOf(current);
+  if (currentIndex < STUDY_MILESTONES.length - 1) {
+    next = STUDY_MILESTONES[currentIndex + 1];
+  }
+  const span = Math.max(1, next.count - current.count);
+  const progress = Math.min(1, (count - current.count) / span);
+  return {
+    count,
+    label: current.label,
+    nextLabel: next.label,
+    progress
+  };
+};
+
+const evaluateQuest = (quest) => {
+  if (!quest) {
+    return true;
+  }
+  return quest.objectives.every((objective) => {
+    if (objective.type === "stat") {
+      return (state.stats[objective.key] || 0) >= objective.target;
+    }
+    if (objective.type === "action") {
+      return (state.actionCounts[objective.key] || 0) >= objective.target;
+    }
+    return false;
+  });
+};
+
+const applyQuestRewards = (quest) => {
+  if (!quest || !quest.rewards) {
+    return;
+  }
+  const rewards = quest.rewards;
+  Object.entries(rewards).forEach(([key, value]) => {
+    if (key === "skillPoints") {
+      state.skillPoints += value;
+      return;
+    }
+    if (key === "talentPoints") {
+      state.talentPoints += value;
+      return;
+    }
+    state.stats[key] = (state.stats[key] || 0) + value;
+  });
+};
+
+const evaluateChainStep = () => {
+  if (!state.chain.steps.length) {
+    return;
+  }
+  const step = state.chain.steps[state.chain.index];
+  if (!step) {
+    return;
+  }
+  const done = step.objectives.every((objective) => {
+    if (objective.type === "stat") {
+      return (state.stats[objective.key] || 0) >= objective.target;
+    }
+    if (objective.type === "action") {
+      return (state.actionCounts[objective.key] || 0) >= objective.target;
+    }
+    return false;
+  });
+  if (!done) {
+    return;
+  }
+  applyQuestRewards({ rewards: step.reward });
+  addLog(`剧情推进：${step.text}`);
+  pushStory(step.text);
+  showCelebration("剧情推进", step.text, step.reward);
+  state.questCounts.chain += 1;
+  if (state.questCounts.chain >= 1) {
+    unlockAchievement("chain_first");
+  }
+  state.chain.index += 1;
+};
+
+const evaluateQuests = () => {
+  if (state.quests.main && !state.quests.main.done && evaluateQuest(state.quests.main)) {
+    state.quests.main.done = true;
+    applyQuestRewards(state.quests.main);
+    addLog(`主线完成：${state.quests.main.title}`);
+    pushStory(`主线完成：${state.quests.main.title}`);
+    showCelebration("主线完成", state.quests.main.title, state.quests.main.rewards);
+    state.questCounts.main += 1;
+    if (state.questCounts.main >= 1) {
+      unlockAchievement("main_first");
+    }
+    if (state.questCounts.main >= 3) {
+      unlockAchievement("main_three");
+    }
+  }
+  state.quests.side.forEach((quest) => {
+    if (!quest.done && evaluateQuest(quest)) {
+      quest.done = true;
+      applyQuestRewards(quest);
+      addLog(`支线完成：${quest.title}`);
+      pushStory(`支线完成：${quest.title}`);
+      showCelebration("支线完成", quest.title, quest.rewards);
+      state.questCounts.side += 1;
+      if (state.questCounts.side >= 1) {
+        unlockAchievement("side_first");
+      }
+    }
+  });
+  evaluateChainStep();
+};
+
+const applyRewardDelta = (rewards) => {
+  if (!rewards) {
+    return;
+  }
+  Object.entries(rewards).forEach(([key, value]) => {
+    if (key === "skillPoints") {
+      state.skillPoints += value;
+      return;
+    }
+    if (key === "talentPoints") {
+      state.talentPoints += value;
+      return;
+    }
+    state.stats[key] = Math.max(0, (state.stats[key] || 0) + value);
+  });
+};
+
+const maybeTriggerBlackSwan = () => {
+  const minGap = 3;
+  if (state.turn - state.lastSwanTurn < minGap) {
+    return false;
+  }
+
+  const chapterId = CHAPTERS[state.chapterIndex]?.id || "career";
+  const stageEvents = BLACK_SWAN_EVENTS[chapterId] || BLACK_SWAN_EVENTS.career;
+  const mood = state.stats.mood || 0;
+  const health = state.stats.health || 0;
+  const money = state.stats.money || 0;
+  const social = state.stats.social || 0;
+  const knowledge = state.stats.knowledge || 0;
+  const skill = state.stats.skill || 0;
+  const creativity = state.stats.creativity || 0;
+  const stress = state.stats.stress || 0;
+
+  const highPressure = mood <= 4 || health <= 5 || stress >= 10;
+  const resourceful = money >= 10;
+  const optionality = social >= 10 || knowledge >= 10 || skill >= 10 || creativity >= 10 || state.entropyPool >= 4;
+
+  let chance = 0.18;
+  if (highPressure) chance += 0.1;
+  if (stress >= 15) chance += 0.08;
+  if (resourceful) chance += 0.05;
+  if (state.turn >= 6) chance += 0.05;
+  if (state.entropyPool >= 6) chance += 0.05;
+  chance = Math.min(0.45, chance);
+
+  if (Math.random() > chance) {
+    return false;
+  }
+
+  const economyPhase = state.economy?.phase || "steady";
+  const economySensitive = ["college", "career", "midlife", "late"].includes(chapterId);
+  let positiveBias = 0;
+  let negativeBias = 0;
+  if (economySensitive && economyPhase === "boom") {
+    positiveBias = 0.15;
+    negativeBias = -0.05;
+  } else if (economySensitive && economyPhase === "bust") {
+    positiveBias = -0.1;
+    negativeBias = 0.2;
+  } else if (economySensitive && economyPhase === "recovery") {
+    positiveBias = 0.08;
+    negativeBias = 0.02;
+  }
+
+  let event = stageEvents[1];
+  if (optionality && Math.random() < 0.35 + positiveBias) {
+    event = stageEvents[2];
+  } else if (highPressure && Math.random() < 0.55 + negativeBias) {
+    event = stageEvents[0];
+  }
+
+  const eventRewards = { ...(event.rewards || {}) };
+  if (economySensitive && eventRewards.money) {
+    if (economyPhase === "boom") {
+      eventRewards.money += eventRewards.money > 0 ? 2 : -1;
+    } else if (economyPhase === "bust") {
+      eventRewards.money += eventRewards.money > 0 ? -1 : -2;
+    } else if (economyPhase === "recovery") {
+      eventRewards.money += eventRewards.money > 0 ? 1 : 0;
+    }
+  }
+
+  state.lastSwanTurn = state.turn;
+  applyRewardDelta(eventRewards);
+  addLog(`黑天鹅事件：${event.text}`);
+  pushStory(event.text);
+  showInteractiveModal({
+    title: event.title,
+    bodyLines: [
+      event.text,
+      economySensitive ? `当前经济周期：${getEconomyLabel(state)}。` : "当前阶段黑天鹅以生活事件为主。",
+      "这次冲击改变了你的节奏，请调整策略。",
+      "高压下更容易触发黑天鹅事件。"
+    ],
+    rewards: eventRewards,
+    primaryLabel: "接受影响"
+  });
+  return true;
+};
+
+const applyAction = (actionId) => {
+  const action = ACTIONS.find((item) => item.id === actionId);
+  console.log("[applyAction] actionId:", actionId, "| action found:", !!action, "| energy:", state.energy, "| talentMode:", state.talentMode);
+
+  if (state.gameOver || state.modalLock) {
+    return;
+  }
+
+  if (!action) {
+    console.error("[ERROR] Action not found:", actionId);
+    addLog(`未知操作：${actionId}`);
+    return;
+  }
+
+  const energyCost = action.cost || 1;
+  if (state.energy < energyCost) {
+    console.log("[BLOCKED] No energy");
+    addLog(`精力不足，需要${energyCost}点。`);
+    return;
+  }
+
+  if (state.talentMode !== "ready") {
+    console.log("[BLOCKED] Talent mode not ready");
+    return;
+  }
+
+  const baseActionId = getActionGroupId(action.id);
+  const talentBonus = getTalentBonus(baseActionId);
+  const skillBonus = getSkillBonus(baseActionId);
+  const multiplier = talentBonus * skillBonus;
+
+  console.log("[ACTION EXECUTED]", action.name, "| multiplier:", multiplier);
+
+  const effectDeltas = {};
+  Object.entries(action.effects).forEach(([key, value]) => {
+    let deltaValue = value;
+    if (key === "money") {
+      const workMultiplier = getWorkMultiplier(state);
+      deltaValue = Math.round(value * workMultiplier);
+    }
+    const delta = Math.round(deltaValue * multiplier);
+    state.stats[key] = Math.max(0, (state.stats[key] || 0) + delta);
+    effectDeltas[key] = delta;
+  });
+  const stressDeltaMap = {
+    study: 2,
+    work: 3,
+    social: 1,
+    create: 1,
+    exercise: -2,
+    rest: -3
+  };
+  const stressDelta = stressDeltaMap[baseActionId] || 0;
+  state.stats.stress = Math.max(0, (state.stats.stress || 0) + stressDelta);
+  state.stressType = state.stats.stress >= 12 ? "Distress" : "Eustress";
+  if (baseActionId !== state.lastActionGroup) {
+    state.entropyPool += 1;
+    state.lastActionGroup = baseActionId;
+  }
+  if (stressDelta !== 0) {
+    effectDeltas.stress = stressDelta;
+  }
+  const effectText = buildEffectText(effectDeltas);
+  if (effectText) {
+    const pos = getScreenPosition(player.x, player.y);
+    spawnFloatingText(effectText, pos.x, pos.y - 40, stressDelta > 0 ? "negative" : "positive");
+  }
+  state.lastActionSummary = {
+    title: action.name,
+    group: baseActionId,
+    gains: effectText ? effectText.split(" ") : []
+  };
+  state.lastActionTick = (state.lastActionTick || 0) + 1;
+  if (state.stats.stress >= 20) {
+    triggerGameOver();
+    return;
+  }
+  state.energy -= energyCost;
+  state.actionCounts[baseActionId] = (state.actionCounts[baseActionId] || 0) + 1;
+  addLog(`执行行动：${action.name}。`);
+  if (baseActionId === "rest") {
+    showCelebration("短暂恢复", "你给自己一个喘息的机会");
+  }
+  if (baseActionId === "create") {
+    showCelebration("灵感爆发", "你完成了一次精彩输出");
+  }
+  evaluateQuests();
+};
+
+const endTurn = () => {
+  if (state.energy > 0) {
+    addLog("还有精力未使用。");
+    return;
+  }
+  if (state.gameOver || state.modalLock) {
+    return;
+  }
+  if (state.skipTurn > 0) {
+    state.skipTurn -= 1;
+    addLog("你在压力中停下脚步，错过了这一回合。");
+    return;
+  }
+  state.turn += 1;
+  state.chapterTurn += 1;
+  state.energy = state.energyMax;
+  const chapter = CHAPTERS[state.chapterIndex];
+  updateEconomy(state);
+  const resolveResult = resolveStress(state);
+  if (resolveResult) {
+    showInteractiveModal({
+      title: resolveResult.title,
+      bodyLines: [resolveResult.text, "你的内在韧性正在决定走向。"],
+      rewards: resolveResult.rewards,
+      primaryLabel: "继续前行"
+    });
+  }
+  if (state.chapterTurn <= chapter.turns) {
+    maybeTriggerBlackSwan();
+  }
+  if (state.chapterTurn > chapter.turns) {
+    if (state.quests.main && !state.quests.main.done) {
+      addLog("主线未完成，章节强制延长一回合。");
+      state.chapterTurn = chapter.turns;
+      state.energy = state.energyMax;
+      return;
+    }
+    const completedChapter = chapter;
+    state.chapterIndex += 1;
+    if (state.chapterIndex >= CHAPTERS.length) {
+      addLog("你完成了人生所有章节。");
+      pushStory("人生篇章完成。你留下了属于自己的轨迹。");
+      return;
+    }
+    const nextChapter = CHAPTERS[state.chapterIndex];
+    showInteractiveModal({
+      title: `阶段升级：${completedChapter.name}`,
+      bodyLines: [
+        `你完成了${completedChapter.name}，即将进入${nextChapter.name}。`,
+        STAGE_PROMPTS[nextChapter.id] || "",
+        "新的主线与支线已刷新，选择将更关键。"
+      ],
+      primaryLabel: "进入下一阶段"
+    });
+    pushStory(`阶段升级：${completedChapter.name} → ${nextChapter.name}`);
+    initChapter();
+  }
+};
+
+const allocateSkill = (skillId, max) => {
+  if (state.skillPoints <= 0) {
+    return;
+  }
+  const current = getSkillLevel(skillId);
+  if (current >= max) {
+    return;
+  }
+  state.skills[skillId] = current + 1;
+  state.skillPoints -= 1;
+  addLog(`技能提升：${skillId} +1`);
+};
+
+const rectContains = (zone, x, y) =>
+  x >= zone.x && x <= zone.x + zone.w && y >= zone.y && y <= zone.y + zone.h;
+
+const CLICK_MARGIN = 24;
+const CLICK_RADIUS = 90;
+
+const rectContainsExpanded = (zone, x, y, margin) =>
+  x >= zone.x - margin &&
+  x <= zone.x + zone.w + margin &&
+  y >= zone.y - margin &&
+  y <= zone.y + zone.h + margin;
+
+const findZoneByPoint = (x, y) => {
+  const expandedHit = activeZones.find((item) => rectContainsExpanded(item, x, y, CLICK_MARGIN));
+  if (expandedHit) {
+    return expandedHit;
+  }
+
+  let closest = null;
+  let closestDist = Infinity;
+  activeZones.forEach((zone) => {
+    const cx = zone.x + zone.w / 2;
+    const cy = zone.y + zone.h / 2;
+    const dx = x - cx;
+    const dy = y - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = zone;
+    }
+  });
+
+  if (closest && closestDist <= CLICK_RADIUS) {
+    return closest;
+  }
+  return null;
+};
+
+const getScreenPosition = (worldX, worldY) => {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: rect.left + worldX,
+    y: rect.top + worldY
+  };
+};
+
+const buildEffectText = (effects) => {
+  if (!effects) {
+    return "";
+  }
+  const labels = {
+    health: "健康",
+    mood: "情绪",
+    knowledge: "知识",
+    skill: "技能",
+    creativity: "创意",
+    social: "社交",
+    money: "金钱",
+    stress: "压力"
+  };
+  return Object.entries(effects)
+    .map(([key, value]) => {
+      const sign = value > 0 ? "+" : "";
+      return `${sign}${value}${labels[key] || key}`;
+    })
+    .join(" ");
+};
+
+const attachTapAction = (el, handler) => {
+  let fired = false;
+  const fireOnce = (event) => {
+    if (fired) return;
+    fired = true;
+    event.preventDefault();
+    handler();
+    window.setTimeout(() => { fired = false; }, 250);
+  };
+  el.addEventListener("pointerdown", fireOnce);
+  el.addEventListener("click", fireOnce);
+};
+
+const showActionPicker = (zoneId) => {
+  const group = ACTION_GROUPS[zoneId];
+  if (!group) {
+    return false;
+  }
+
+  const existing = document.getElementById("action-picker");
+  if (existing) {
+    existing.remove();
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "action-picker";
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <div class="glass-panel action-picker-panel">
+      <div class="action-picker-title">${group.title}</div>
+      <p class="action-picker-subtitle">${group.subtitle}</p>
+      <div class="action-picker-grid" id="action-picker-grid"></div>
+      <div style="margin-top:16px">
+        <button class="btn-danger" id="action-picker-cancel">取消</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const grid = document.getElementById("action-picker-grid");
+  group.actions.forEach((actionId) => {
+    const action = ACTIONS.find((item) => item.id === actionId);
+    if (!action) {
+      return;
+    }
+    const energyCost = action.cost || 1;
+    const btn = document.createElement("button");
+    btn.innerHTML = `<div style="font-weight:700">${action.name}</div><div style="font-size:12px;opacity:0.8">${action.desc}</div><div style="font-size:12px;opacity:0.7;margin-top:4px">精力消耗: ${energyCost}</div>`;
+    if (state.energy < energyCost) {
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      btn.style.cursor = "not-allowed";
+    } else {
+      attachTapAction(btn, () => {
+        overlay.remove();
+        applyAction(actionId);
+      });
+    }
+    grid.appendChild(btn);
+  });
+
+  const cancelBtn = document.getElementById("action-picker-cancel");
+  if (cancelBtn) {
+    attachTapAction(cancelBtn, () => {
+      overlay.remove();
+    });
+  }
+
+  overlay.addEventListener("pointerdown", (event) => {
+    if (event.target === overlay) {
+      overlay.remove();
+    }
+  });
+
+  return true;
+};
+
+const handleInteract = () => {
+  if (state.talentMode !== "ready") {
+    addLog("请先完成天赋选择。");
+    return;
+  }
+  const zone = activeZones.find((item) => rectContains(item, player.x, player.y));
+  if (!zone) {
+    return;
+  }
+  if (zone.id === "end") {
+    endTurn();
+    return;
+  }
+  if (zone.id === "arena") {
+    startCombat();
+    return;
+  }
+  if (ACTION_GROUPS[zone.id]) {
+    showActionPicker(zone.id);
+    return;
+  }
+  applyAction(zone.id);
+};
+
+const updateStory = (dt) => {
+  if (!state.storyText && state.storyQueue.length === 0) {
+    return;
+  }
+  if (!state.storyText) {
+    state.storyText = state.storyQueue.shift();
+    state.storyTimer = 0;
+    state.storyHold = 0;
+  }
+  state.storyTimer += dt;
+  const length = state.storyText.length;
+  const displayLength = Math.min(length, Math.floor(state.storyTimer * 24));
+  if (displayLength >= length) {
+    state.storyHold += dt;
+    if (state.storyHold > 1.2) {
+      state.storyText = "";
+      state.storyTimer = 0;
+      state.storyHold = 0;
+    }
+  }
+};
+
+const update = (dt) => {
+  const move = player.speed * dt;
+  if (input.has("ArrowUp") || input.has("w")) player.y -= move;
+  if (input.has("ArrowDown") || input.has("s")) player.y += move;
+  if (input.has("ArrowLeft") || input.has("a")) player.x -= move;
+  if (input.has("ArrowRight") || input.has("d")) player.x += move;
+  player.x = Math.max(20, Math.min(canvas.width / (window.devicePixelRatio || 1) - 20, player.x));
+  player.y = Math.max(20, Math.min(canvas.height / (window.devicePixelRatio || 1) - 20, player.y));
+  updateStory(dt);
+};
+
+/**
+ * UI 更新逻辑 (DOM)
+ */
+// --- 优化后的 UI 系统 ---
+const handleZoneInteraction = (zone, el) => {
+  if (!zone) {
+    return;
+  }
+
+  if (state.gameOver || state.modalLock) {
+    return;
+  }
+
+  console.log("[DEBUG] Zone clicked:", zone.id, "| talentMode:", state.talentMode, "| energy:", state.energy);
+
+  if (state.talentMode !== "ready") {
+    console.log("[BLOCKED] Talent mode not ready");
+    addLog("请先完成天赋选择。");
+    return;
+  }
+
+  if (zone.id === "end") {
+    if (state.energy > 0) {
+      const guide = document.getElementById("guide-overlay");
+      if (guide) {
+        guide.style.animation = "none";
+        guide.offsetHeight; // Trigger reflow
+        guide.style.animation = "shake 0.3s";
+      }
+      addLog(`还有${state.energy}点精力未使用，请先点击场景。`);
+      return;
+    }
+    endTurn();
+    return;
+  }
+
+  if (zone.id === "arena") {
+    startCombat();
+    return;
+  }
+
+  if (ACTION_GROUPS[zone.id]) {
+    showActionPicker(zone.id);
+    return;
+  }
+
+  if (el) {
+    el.style.transform = "scale(0.95)";
+    setTimeout(() => { el.style.transform = ""; }, 100);
+  }
+
+  player.targetX = zone.x + zone.w / 2;
+  player.targetY = zone.y + zone.h / 2;
+
+  console.log("[ACTION] Calling applyAction for:", zone.id);
+  applyAction(zone.id);
+};
+
+const initZones = () => {
+  const world = document.getElementById("game-world");
+  if (!world) {
+    return;
+  }
+  world.innerHTML = ""; // Clear existing
+
+  const chapterId = CHAPTERS[state.chapterIndex]?.id || "career";
+  activeZones = zones.filter((zone) => {
+    if (zone.id === "work" || zone.id === "create") {
+      return !["primary"].includes(chapterId);
+    }
+    return true;
+  });
+
+  activeZones.forEach(zone => {
+    const el = document.createElement("div");
+    el.className = "map-location";
+    el.style.left = zone.x + "px";
+    el.style.top = zone.y + "px";
+    el.style.width = zone.w + "px";
+    el.style.height = zone.h + "px";
+    el.dataset.zoneId = zone.id;
+
+    if (zone.img) {
+      el.innerHTML = `
+        <img src="${zone.img}" class="loc-icon" alt="${zone.name}">
+        <div class="loc-label">${zone.name}</div>
+      `;
+    } else {
+      el.className = "map-location zone-btn";
+      el.id = `zone-${zone.id}`;
+      el.style.borderRadius = "12px";
+      el.style.textAlign = "center";
+      el.style.lineHeight = zone.h + "px";
+      el.innerHTML = `<span style="font-weight:bold;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)">${zone.name}</span>`;
+    }
+
+    world.appendChild(el);
+  });
+};
+
+const updateUI = () => {
+  syncStartModal();
+  // 仅更新高频动态数据 (HUD Stats, Logs)
+  // 1. Stats - Match HTML IDs
+  const energyText = document.getElementById("text-energy");
+  const healthVal = document.getElementById("val-health");
+  const moodVal = document.getElementById("val-mood");
+  const moneyVal = document.getElementById("val-money");
+  const turnVal = document.getElementById("val-turn-num");
+  const energyBar = document.getElementById("bar-energy");
+
+  if (energyText) energyText.textContent = `${Math.floor(state.energy)}/${state.energyMax}`;
+  if (healthVal) healthVal.textContent = Math.floor(state.stats.health);
+  if (moodVal) moodVal.textContent = Math.floor(state.stats.mood);
+  if (moneyVal) moneyVal.textContent = Math.floor(state.stats.money);
+  if (turnVal) updateRollingNumber(turnVal, state.turn);
+  if (energyBar) energyBar.style.width = `${(state.energy / state.energyMax) * 100}%`;
+
+  // 2. Dynamic Guide Text
+  const guide = document.getElementById("guide-overlay");
+  if (guide && state.talentMode === "ready") {
+    if (state.energy > 0) {
+      guide.textContent = `消耗精力: 点击场景互动 (剩余${state.energy}/${state.energyMax})`;
+      guide.style.color = "var(--accent-cyan)";
+    } else {
+      guide.textContent = "精力已耗尽！点击右下角【结束回合】继续";
+      guide.style.color = "var(--accent-gold)";
+    }
+  }
+
+  // 2.5 Status Text
+  const statusEl = document.getElementById("val-state");
+  if (statusEl) {
+    const status = getStatusMeta();
+    statusEl.innerHTML = `状态：${status.overall}<span class="status-sub">情绪：${status.moodLabel} · 体能：${status.healthLabel}</span><span class="status-sub">称号：${state.title}</span>`;
+  }
+
+  // 2.6 Profile Panel
+  const profileEl = document.getElementById("profile-content");
+  if (profileEl) {
+    const statCap = 20;
+    const clamp = (value) => Math.max(0, Math.min(statCap, value || 0));
+    const percent = (value) => Math.round((clamp(value) / statCap) * 100);
+    const tier = (value) =>
+      value <= 5 ? "低迷" : value <= 10 ? "稳定" : value <= 15 ? "上扬" : "爆发";
+
+    const focusCounts = [
+      { id: "study", label: "学习", count: state.actionCounts.study || 0 },
+      { id: "exercise", label: "运动", count: state.actionCounts.exercise || 0 },
+      { id: "social", label: "社交", count: state.actionCounts.social || 0 }
+    ];
+    focusCounts.sort((a, b) => b.count - a.count);
+    const focusLabel = focusCounts[0].count > 0 ? focusCounts[0].label : "尚未投入";
+
+    profileEl.innerHTML = `
+      <div class="profile-chip">当前称号：${state.title}</div>
+      <div class="profile-chip">近期投入：${focusLabel}</div>
+      <div class="profile-section-title">身体状态</div>
+      <div class="profile-row"><span>体能 ${tier(state.stats.health)}</span><span>${Math.floor(state.stats.health || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.health)}%;background:linear-gradient(90deg,#22c55e,#86efac)"></div></div>
+      <div class="profile-row"><span>情绪 ${tier(state.stats.mood)}</span><span>${Math.floor(state.stats.mood || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.mood)}%;background:linear-gradient(90deg,#fbbf24,#fde68a)"></div></div>
+
+      <div class="profile-section-title">学习状态</div>
+      <div class="profile-row"><span>知识 ${tier(state.stats.knowledge)}</span><span>${Math.floor(state.stats.knowledge || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.knowledge)}%;background:linear-gradient(90deg,#38bdf8,#a5f3fc)"></div></div>
+      <div class="profile-row"><span>技能 ${tier(state.stats.skill)}</span><span>${Math.floor(state.stats.skill || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.skill)}%;background:linear-gradient(90deg,#6366f1,#c7d2fe)"></div></div>
+
+      <div class="profile-section-title">社交状态</div>
+      <div class="profile-row"><span>社交 ${tier(state.stats.social)}</span><span>${Math.floor(state.stats.social || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.social)}%;background:linear-gradient(90deg,#f472b6,#fbcfe8)"></div></div>
+
+      <div class="profile-section-title">压力状态</div>
+      <div class="profile-row"><span>压力 ${tier(state.stats.stress)}</span><span>${Math.floor(state.stats.stress || 0)}</span></div>
+      <div class="profile-bar"><div class="profile-fill" style="width:${percent(state.stats.stress)}%;background:linear-gradient(90deg,#f97316,#fdba74)"></div></div>
+      <div class="profile-row"><span>压力类型</span><span>${state.stressType}</span></div>
+      <div class="profile-row"><span>韧性</span><span>${state.resilience}</span></div>
+      <div class="profile-row"><span>经济周期</span><span>${getEconomyLabel(state)}</span></div>
+    `;
+  }
+
+  // 3. Story + Logs
+  const storyEl = document.getElementById("story-display");
+  if (storyEl) {
+    storyEl.textContent = state.storyText || "";
+  }
+
+  const logEl = document.getElementById("log-list");
+  if (logEl) {
+    logEl.innerHTML = state.log
+      .map((item) => `<div class="log-entry">> ${item}</div>`)
+      .join("");
+  }
+
+  // 4. Core Panel
+  const corePanel = document.getElementById("hud-core");
+  const coreStatus = document.getElementById("core-status");
+  const coreAction = document.getElementById("core-action");
+  const coreGains = document.getElementById("core-gains");
+  if (corePanel && coreStatus && coreAction && coreGains) {
+    const status = getStatusMeta();
+    coreStatus.textContent = `状态：${status.overall} · 情绪 ${status.moodLabel} · 体能 ${status.healthLabel}`;
+
+    const renderMetric = (targetId, label, value, color) => {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      const percentValue = Math.min(100, Math.max(0, Math.round((value / 20) * 100)));
+      el.innerHTML = `
+        <div class="core-row"><span>${label}</span><span>${Math.floor(value)}</span></div>
+        <div class="core-bar"><div class="core-bar-fill" style="width:${percentValue}%;background:${color}"></div></div>
+      `;
+    };
+
+    renderMetric("core-health", "健康", state.stats.health || 0, "linear-gradient(90deg,#22c55e,#86efac)");
+    renderMetric("core-stress", "压力", state.stats.stress || 0, "linear-gradient(90deg,#f97316,#fdba74)");
+    renderMetric("core-knowledge", "知识", state.stats.knowledge || 0, "linear-gradient(90deg,#38bdf8,#a5f3fc)");
+    renderMetric("core-skill", "技能", state.stats.skill || 0, "linear-gradient(90deg,#6366f1,#c7d2fe)");
+    renderMetric("core-social", "社交", state.stats.social || 0, "linear-gradient(90deg,#f472b6,#fbcfe8)");
+    renderMetric("core-creativity", "创意", state.stats.creativity || 0, "linear-gradient(90deg,#f59e0b,#fde68a)");
+    renderMetric("core-mood", "情绪", state.stats.mood || 0, "linear-gradient(90deg,#fbbf24,#fde68a)");
+    renderMetric("core-money", "金钱", state.stats.money || 0, "linear-gradient(90deg,#14b8a6,#6ee7b7)");
+
+    const summary = state.lastActionSummary;
+    if (summary) {
+      coreAction.textContent = summary.title || "行动完成";
+      coreGains.innerHTML = summary.gains
+        .map((item) => `<span class="core-gain-chip">${item}</span>`)
+        .join("");
+    } else {
+      coreAction.textContent = "等待行动";
+      coreGains.textContent = "完成行动后显示收益。";
+    }
+
+    if (state.lastActionTick && state.lastActionTick !== corePanel.dataset.tick) {
+      corePanel.classList.remove("core-flash");
+      corePanel.offsetHeight;
+      corePanel.classList.add("core-flash");
+      corePanel.dataset.tick = String(state.lastActionTick);
+    }
+  }
+};
+
+const updateStaticUI = () => {
+  // 低频更新：任务列表，技能树
+  // Quests
+  const questEl = document.getElementById("hud-quests");
+  let questHTML = `<h3>当前目标</h3>`;
+
+  if (state.quests.main) {
+    const q = state.quests.main;
+    questHTML += `
+      <div class="quest-item ${q.done ? 'done' : ''}">
+        <div style="font-weight:bold;margin-bottom:4px">[主] ${q.title}</div>
+        <div style="font-size:12px;opacity:0.8">${q.desc}</div>
+      </div>
+    `;
+  }
+  state.quests.side.forEach(q => {
+    questHTML += `
+      <div class="quest-item ${q.done ? 'done' : ''}">
+        <div>[支] ${q.title}</div>
+      </div>
+    `;
+  });
+  questEl.innerHTML = questHTML;
+
+  // Achievements Mini
+  const achievementMiniEl = document.getElementById("achievement-mini-list");
+  if (achievementMiniEl) {
+    const unlocked = ACHIEVEMENTS.filter((item) => state.achievements[item.id]);
+    const recent = unlocked.slice(-3);
+    let html = `<div class="profile-chip">当前称号：${state.title}</div>`;
+    if (!recent.length) {
+      html += `<div class="achievement-desc">暂无成就，完成任务解锁。</div>`;
+    } else {
+      html += recent
+        .map((item) => `<div class="achievement-card"><div class="achievement-title">${item.name}</div><div class="achievement-desc">${item.desc}</div></div>`)
+        .join("");
+    }
+    achievementMiniEl.innerHTML = html;
+  }
+
+  // Skills
+  const skillEl = document.getElementById("hud-skills");
+  let skillHTML = `<h3>技能树</h3>`;
+  skillHTML += `<div style="font-size:12px;opacity:0.7;margin-top:6px">可用技能点：${state.skillPoints}</div>`;
+
+  Object.values(SKILL_TREE).forEach(group => {
+    skillHTML += `<div style="margin-top:10px;font-weight:bold;color:#ffb347">${group.name}</div>`;
+    group.skills.forEach(skill => {
+      const level = getSkillLevel(skill.id);
+      const isMax = level >= skill.max;
+      const disabled = state.skillPoints <= 0 || isMax;
+      skillHTML += `
+        <button class="skill-item" data-skill-id="${skill.id}" data-skill-max="${skill.max}" ${disabled ? "disabled" : ""}>
+          <span style="opacity:${isMax ? 0.6 : 1}">${skill.name}</span>
+          <span>${level}/${skill.max}</span>
+        </button>
+      `;
+    });
+  });
+  skillEl.innerHTML = skillHTML;
+};
+
+
+
+const startCombat = () => {
+  if (state.energy <= 0) {
+    addLog("精力不足，无法挑战。");
+    return;
+  }
+  const chapterId = CHAPTERS[state.chapterIndex].id;
+  const enemy = getRandomEnemy(chapterId);
+  state.combat = createCombatState(state.stats, enemy);
+  state.energy -= 1; // 挑战消耗1点精力
+  addLog("战斗开始！");
+};
+
+const handleCombatAction = (actionType, data) => {
+  if (!state.combat) return;
+
+  // 技能选择模式
+  if (state.skillSelectMode) {
+    if (actionType === 'cancel') {
+      state.skillSelectMode = false;
+    } else if (actionType === 'use_skill') {
+      state.combat = executeSkill(state.combat, data);
+      state.skillSelectMode = false;
+      checkCombatResult();
+    }
+    return;
+  }
+
+  // 战斗结束
+  if (actionType === 'end_combat') {
+    if (state.combat.result === 'victory') {
+      state.combat = null;
+      return;
+    }
+    // 失败或逃跑
+    state.combat = null;
+    return;
+  }
+
+  // 下一回合（敌人行动结束）
+  if (actionType === 'next_step') {
+    state.combat = executeEnemyTurn(state.combat);
+    checkCombatResult();
+    return;
+  }
+
+  // 玩家行动
+  if (actionType === 'attack') {
+    state.combat = executeAttack(state.combat);
+  } else if (actionType === 'defend') {
+    state.combat = executeDefend(state.combat);
+  } else if (actionType === 'escape') {
+    state.combat = executeEscape(state.combat);
+  } else if (actionType === 'skill') {
+    state.skillSelectMode = true;
+    return; // 等待选择技能
+  }
+
+  checkCombatResult();
+};
+
+const checkCombatResult = () => {
+  if (!state.combat) return;
+
+  if (state.combat.result === 'victory') {
+    // 胜利结算
+    const rewards = state.combat.enemy.reward || {};
+    applyRewards(state, rewards);
+    showCelebration("挑战成功", `获得奖励！`, rewards);
+    // 保持战斗界面显示胜利信息，直到玩家点击结束
+  } else if (state.combat.result === 'defeat') {
+    // 失败结算
+    state.stats.mood = Math.max(0, (state.stats.mood || 0) - 2);
+    state.stats.health = Math.max(0, (state.stats.health || 0) - 1);
+    addLog("挑战失败，情绪受挫。");
+  }
+};
+
+const draw = () => {
+  // 更新 DOM UI (Dynamic Stats/Logs)
+  updateUI();
+
+  // 强制同步战斗遮罩可见性，防止透明层拦截点击
+  const combatOverlay = document.getElementById("combat-overlay");
+  if (combatOverlay) {
+    const shouldShow = Boolean(state.combat);
+    combatOverlay.classList.toggle("hidden", !shouldShow);
+    combatOverlay.style.pointerEvents = shouldShow ? "auto" : "none";
+    combatOverlay.style.visibility = shouldShow ? "visible" : "hidden";
+  }
+
+  // 绘制 Combat UI Overlay
+  if (state.combat) {
+    updateCombatUI(state.combat, (actionId) => handleCombatAction(actionId));
+
+    if (state.skillSelectMode) {
+      const skills = getAvailableSkills(state.skills);
+      showSkillSelect(
+        skills,
+        (skill) => handleCombatAction('use_skill', skill),
+        () => handleCombatAction('cancel')
+      );
+    }
+  } else {
+    updateCombatUI(null);
+  }
+
+  // --- Canvas 绘制游戏世界 ---
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 仅绘制玩家
+  // 简单的位置平滑 (Lerp)
+  if (player.targetX !== undefined) {
+    player.x += (player.targetX - player.x) * 0.1;
+    player.y += (player.targetY - player.y) * 0.1;
+  }
+
+  const statusMeta = getStatusMeta();
+  ctx.fillStyle = "#f5f1ea";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+  ctx.fill();
+  // 添加玩家光晕
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = statusMeta.glow;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = statusMeta.ring;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.size + 6, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 简易的操作提示
+  // 已移至 DOM #guide-overlay
+
+  // 天赋选择 (Start Game Mode)
+  if (state.talentMode !== "ready") {
+    // 这种模式下，我们应该显示一个 DOM 弹窗，而不是绘制 Canvas
+    // 这里只绘制一个简单的遮罩，逻辑移交给 syncStartModal()
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  ctx.restore();
+};
+
+// 新增：同步开始游戏弹窗，避免遮罩卡住
+const syncStartModal = () => {
+  const guide = document.getElementById("guide-overlay");
+  const modal = document.getElementById("start-modal");
+
+  if (state.talentMode === "ready") {
+    if (modal) modal.remove();
+    return;
+  }
+
+  if (state.talentMode === "manual") {
+    if (modal) modal.remove();
+    if (guide) {
+      guide.textContent = "手动分配天赋：Q/W/E +1，A/S/D -1，Enter确认";
+    }
+    return;
+  }
+
+  if (!modal) {
+    const nextModal = document.createElement("div");
+    nextModal.id = "start-modal";
+    nextModal.className = "overlay";
+    nextModal.innerHTML = `
+       <div class="glass-panel" style="padding:40px;text-align:center">
+         <h1 style="color:var(--accent-cyan);margin-bottom:20px">反脆弱人生</h1>
+         <p style="color:#ccc;margin-bottom:30px">在这个赛博世界中，你的每一个决定都至关重要。</p>
+         <button id="btn-start-game" style="font-size:18px;padding:12px 40px">随机天赋并开始</button>
+       </div>
+     `;
+    document.body.appendChild(nextModal);
+
+    const startBtn = document.getElementById("btn-start-game");
+    if (startBtn) {
+      startBtn.onclick = () => {
+        randomTalents();
+        nextModal.remove();
+        if (guide) {
+          guide.textContent = "点击场景进行互动 | 目标：完成左侧任务";
+        }
+      };
+    }
+  }
+
+  if (guide) {
+    guide.textContent = "请初始化您的天赋...";
+  }
+};
+
+const wrapText = (text, x, y, maxWidth, lineHeight) => {
+  const words = text.split("");
+  let line = "";
+  let offsetY = y;
+  words.forEach((char, index) => {
+    const testLine = line + char;
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && index > 0) {
+      ctx.fillText(line, x, offsetY);
+      line = char;
+      offsetY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  });
+  ctx.fillText(line, x, offsetY);
+};
+
+const loop = (timestamp) => {
+  const dt = Math.min(0.033, (timestamp - lastTime) / 1000 || 0);
+  lastTime = timestamp;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+};
+
+window.addEventListener("resize", resize);
+window.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  input.add(key);
+  if (key === "e") {
+    handleInteract();
+  }
+  if (key === "n") {
+    endTurn();
+  }
+  if (!state.talentMode) {
+    if (key === "1") {
+      randomTalents();
+    } else if (key === "2") {
+      state.talentMode = "manual";
+    }
+    return;
+  }
+  if (state.talentMode === "manual") {
+    if (key === "q") state.talentDraft.rational += 1;
+    if (key === "w") state.talentDraft.empathic += 1;
+    if (key === "e") state.talentDraft.grit += 1;
+    if (key === "a") state.talentDraft.rational = Math.max(0, state.talentDraft.rational - 1);
+    if (key === "s") state.talentDraft.empathic = Math.max(0, state.talentDraft.empathic - 1);
+    if (key === "d") state.talentDraft.grit = Math.max(0, state.talentDraft.grit - 1);
+    const total =
+      state.talentDraft.rational + state.talentDraft.empathic + state.talentDraft.grit;
+    if (key === "enter" && total <= state.talentPoints) {
+      applyTalentDraft();
+    }
+  }
+});
+
+window.addEventListener("keyup", (event) => {
+  input.delete(event.key.toLowerCase());
+});
+
+const bindWorldInteractions = () => {
+  const world = document.getElementById("game-world");
+  if (!world) {
+    return;
+  }
+
+  world.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest("#start-modal")) {
+      return;
+    }
+
+    const combatOverlay = document.getElementById("combat-overlay");
+    if (combatOverlay && !combatOverlay.classList.contains("hidden")) {
+      return;
+    }
+
+    if (target.closest("#ui-layer")) {
+      return;
+    }
+
+    const zoneEl = target.closest(".map-location");
+    if (zoneEl) {
+      const zoneId = zoneEl.dataset.zoneId;
+      const zone = activeZones.find((item) => item.id === zoneId);
+      handleZoneInteraction(zone, zoneEl);
+      return;
+    }
+
+    const zone = findZoneByPoint(event.clientX, event.clientY);
+    if (zone) {
+      const el = world.querySelector(`.map-location[data-zone-id="${zone.id}"]`);
+      handleZoneInteraction(zone, el || null);
+      return;
+    }
+  });
+};
+
+let skillTreeBound = false;
+
+const bindSkillTreeInteractions = () => {
+  if (skillTreeBound) {
+    return;
+  }
+  const skillEl = document.getElementById("hud-skills");
+  if (!skillEl) {
+    return;
+  }
+  skillTreeBound = true;
+
+  skillEl.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const btn = target.closest(".skill-item");
+    if (!btn || btn.disabled) {
+      return;
+    }
+    const skillId = btn.dataset.skillId;
+    const max = Number(btn.dataset.skillMax || 0);
+    if (!skillId || !max) {
+      return;
+    }
+    allocateSkill(skillId, max);
+    updateStaticUI();
+  });
+};
+
+let achievementsBound = false;
+
+const bindAchievementsInteractions = () => {
+  if (achievementsBound) {
+    return;
+  }
+  const btn = document.getElementById("btn-achievements");
+  const modal = document.getElementById("achievements-modal");
+  const closeBtn = document.getElementById("achievements-close");
+  if (!btn || !modal || !closeBtn) {
+    return;
+  }
+  achievementsBound = true;
+
+  attachTapAction(btn, () => {
+    updateAchievementsUI();
+    modal.classList.remove("hidden");
+  });
+  attachTapAction(closeBtn, () => {
+    modal.classList.add("hidden");
+  });
+  modal.addEventListener("pointerdown", (event) => {
+    if (event.target === modal) {
+      modal.classList.add("hidden");
+    }
+  });
+};
+
+canvas.addEventListener("click", (event) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const button = uiButtons.find(
+    (item) => x >= item.x && x <= item.x + item.w && y >= item.y && y <= item.y + item.h
+  );
+  if (button) {
+    button.handler();
+  }
+});
+
+resize();
+initAtmosphere(() => state);
+initUiFx();
+enableGlobalRipples();
+initZones(); // Initialize map elements
+bindWorldInteractions();
+bindSkillTreeInteractions();
+bindAchievementsInteractions();
+updateStaticUI(); // Initial static UI render
+syncStartModal(); // Check if we need to show start screen
+requestAnimationFrame(loop);
