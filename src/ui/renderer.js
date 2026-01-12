@@ -8,6 +8,7 @@ import { applyAction } from '../core/gameLoop.js';
 import { getEconomyLabel } from '../core/economy.js';
 import { updateCombatUI, showSkillSelect } from './combatUI.js';
 import { getAvailableSkills } from '../data/combat_skills.js';
+import { upgradeSkill } from '../systems/skills.js';
 
 const getStatusMeta = () => {
     const state = getState();
@@ -67,19 +68,40 @@ export const initRenderer = (canvasEl) => {
     window.addEventListener('resize', resize);
     resize();
 
+    const skillPanel = document.getElementById("hud-skills");
+    if (skillPanel) {
+        skillPanel.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            const button = target.closest(".skill-item");
+            if (!button || button.disabled) return;
+            const skillId = button.dataset.skillId;
+            if (!skillId) return;
+            upgradeSkill(skillId);
+        });
+    }
+
     // Start Request Animation Frame locally? Or let main loop call draw.
     // Let main loop call renderGame(state).
 };
 
-const getStartX = () => (window.innerWidth - 800) / 2;
+const getStartX = () => Math.max(300, (window.innerWidth - 800) / 2);
 const startY = 140;
 
 export const initZones = () => {
     const startX = getStartX();
-    // Update x/y based on dynamic centering if needed, matching main.js logic ideally.
-    // For now using hardcoded relative offsets from zones array but we need to apply startX/startY logic.
 
-    // Re-map zones with offset
+    // Calculate scale to fit between sidebars
+    // Left Sidebar area: ~300px (startX min)
+    // Right Sidebar area: ~280px (220 width + 24 right + padding)
+    const rightSidebarSpace = 280;
+    const availableWidth = window.innerWidth - startX - rightSidebarSpace;
+    const baseMapWidth = 800; // Original map design width
+
+    // Scale down if space is tight, but don't scale up beyond 1.0 (or maybe slight allow?)
+    const scale = Math.min(1, Math.max(0.6, availableWidth / baseMapWidth));
+
+    // Re-map zones with offset and scale
     const baseZones = [
         { id: "study", name: "学习区", x: 50, y: 0, w: 120, h: 140, img: "assets/loc_study.png" },
         { id: "exercise", name: "运动区", x: 250, y: -20, w: 120, h: 140, img: "assets/loc_exercise.png" },
@@ -98,8 +120,11 @@ export const initZones = () => {
 
     activeZones = baseZones.map(z => ({
         ...z,
-        x: startX + z.x,
-        y: startY + z.y
+        x: startX + z.x * scale,
+        y: startY + z.y * scale,
+        w: z.w * scale,
+        h: z.h * scale,
+        fontSize: Math.max(10, 14 * scale) + 'px' // Optional: scale font too?
     })).filter((zone) => {
         // Basic filtering logic
         return true;
@@ -120,8 +145,8 @@ export const initZones = () => {
 
             if (zone.img) {
                 el.innerHTML = `
-                <img src="${zone.img}" class="loc-icon" alt="${zone.name}">
-                <div class="loc-label">${zone.name}</div>
+                <img src="${zone.img}" class="loc-icon" alt="${zone.name}" style="width:100%; height:auto;">
+                <div class="loc-label" style="font-size:85%;">${zone.name}</div>
             `;
             } else {
                 el.className = "map-location zone-btn";
@@ -130,7 +155,7 @@ export const initZones = () => {
                 el.style.textAlign = "center";
                 el.style.lineHeight = zone.h + "px";
                 el.style.backgroundColor = zone.color || "var(--accent-primary)";
-                el.innerHTML = `<span style="font-weight:bold;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5)">${zone.name}</span>`;
+                el.innerHTML = `<span style="font-weight:bold;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.5);font-size:${zone.fontSize || 'inherit'}">${zone.name}</span>`;
             }
             world.appendChild(el);
         });
@@ -178,16 +203,20 @@ export const renderGame = (state, dt, callbacks = {}) => {
     // Combat UI
     // Ensure overlay visibility
     const combatOverlay = document.getElementById("combat-overlay");
+    const uiLayer = document.getElementById("ui-layer");
     if (combatOverlay) {
         const shouldShow = Boolean(state.combat);
         combatOverlay.classList.toggle("hidden", !shouldShow);
         combatOverlay.style.pointerEvents = shouldShow ? "auto" : "none";
         combatOverlay.style.visibility = shouldShow ? "visible" : "hidden";
+        if (uiLayer) {
+            uiLayer.style.pointerEvents = shouldShow ? "auto" : "none";
+        }
     }
 
     if (state.combat) {
         const onCombatAction = callbacks.onCombatAction || (() => { });
-        updateCombatUI(state.combat, (actionId) => onCombatAction(actionId));
+        updateCombatUI(state.combat, (actionId) => onCombatAction(actionId), state.skillSelectMode);
 
         if (state.skillSelectMode) {
             const skills = getAvailableSkills(state.skills);
@@ -308,6 +337,49 @@ export const updateUI = (state) => {
 };
 
 const updateStaticUI = (state) => {
+    const statLabels = {
+        health: "健康",
+        mood: "情绪",
+        focus: "专注",
+        knowledge: "知识",
+        skill: "技能",
+        creativity: "创意",
+        social: "社交",
+        reputation: "声望",
+        money: "金钱",
+        stress: "压力",
+        grit: "坚毅",
+        fragility: "脆弱"
+    };
+    const actionLabels = {
+        study: "学习",
+        work: "工作",
+        social: "社交",
+        create: "创作",
+        exercise: "运动",
+        rest: "休息",
+        active_leisure: "主动娱乐",
+        passive_ent: "被动娱乐"
+    };
+    const renderObjectives = (objectives = []) => {
+        if (!objectives.length) return "";
+        const rows = objectives.map((objective) => {
+            const target = objective.target ?? 0;
+            if (objective.type === "stat") {
+                const current = Math.floor(state.stats[objective.key] || 0);
+                const label = statLabels[objective.key] || objective.key;
+                return `<div class="quest-progress">${label}：${current}/${target}</div>`;
+            }
+            if (objective.type === "action") {
+                const current = state.actionCounts[objective.key] || 0;
+                const label = actionLabels[objective.key] || objective.key;
+                return `<div class="quest-progress">${label}：${current}/${target}</div>`;
+            }
+            return "";
+        }).join("");
+        return `<div class="quest-progress-list">${rows}</div>`;
+    };
+
     // Quests
     const questEl = document.getElementById("hud-quests");
     if (questEl) {
@@ -318,6 +390,7 @@ const updateStaticUI = (state) => {
           <div class="quest-item ${q.done ? 'done' : ''}">
             <div style="font-weight:bold;margin-bottom:4px">[主] ${q.title}</div>
             <div style="font-size:12px;opacity:0.8">${q.desc}</div>
+            ${renderObjectives(q.objectives)}
           </div>
         `;
         }
@@ -325,6 +398,7 @@ const updateStaticUI = (state) => {
             questHTML += `
           <div class="quest-item ${q.done ? 'done' : ''}">
             <div>[支] ${q.title}</div>
+            ${renderObjectives(q.objectives)}
           </div>
         `;
         });
@@ -353,7 +427,11 @@ const updateStaticUI = (state) => {
         // Helper to match main.js getSkillLevel if not imported. 
         // Ideally should be imported from skills.js or helpers. 
         // For now we access state.skills directly.
-        const getSkillLevel = (id) => state.skills[id] || 0;
+        const getSkillLevel = (id) => {
+            const entry = state.skills[id];
+            if (!entry) return 0;
+            return typeof entry === "number" ? entry : entry.level || 0;
+        };
 
         let skillHTML = `<h3>技能树</h3>`;
         skillHTML += `<div style="font-size:12px;opacity:0.7;margin-top:6px">可用技能点：${state.skillPoints}</div>`;
@@ -377,7 +455,22 @@ const updateStaticUI = (state) => {
 };
 
 export const showActionPicker = (zoneId, applyActionCallback) => {
-    const group = ACTION_GROUPS[zoneId];
+    // Map zone IDs to Action Categories
+    const zoneMap = {
+        study: "study",
+        work: "work",
+        social: "social",
+        create: "creative",
+        exercise: "health",
+        active_leisure: "leisure",
+        passive_ent: "leisure",
+        rest: "rest"
+    };
+
+    const category = zoneMap[zoneId];
+    if (!category) return false;
+
+    const group = ACTION_GROUPS[category];
     if (!group) return false;
 
     // Remove existing
@@ -402,10 +495,14 @@ export const showActionPicker = (zoneId, applyActionCallback) => {
     const grid = document.getElementById("action-picker-grid");
     const state = getState();
 
-    group.actions.forEach((actionId) => {
-        const action = ACTIONS.find((item) => item.id === actionId);
-        if (!action) return;
+    // Fetch actions by category
+    const groupActions = ACTIONS.filter(a => a.category === category);
 
+    if (groupActions.length === 0) {
+        grid.innerHTML = `<div style="grid-column:span 2; opacity:0.6; text-align:center;">暂无可用行动</div>`;
+    }
+
+    groupActions.forEach((action) => {
         const energyCost = action.cost || 1;
 
         let tagHtml = "";
@@ -436,7 +533,7 @@ export const showActionPicker = (zoneId, applyActionCallback) => {
         } else {
             btn.onclick = () => {
                 overlay.remove();
-                if (applyActionCallback) applyActionCallback(actionId);
+                if (applyActionCallback) applyActionCallback(action.id);
             };
         }
         grid.appendChild(btn);

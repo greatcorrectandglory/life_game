@@ -102,6 +102,11 @@ export const createInitialState = () => ({
     dilemmaResults: {},        // 困境选择结果
     lastBlackSwanTurn: -99,    // 上次黑天鹅回合
   },
+
+  // === 决策回响系统 ===
+  decisionHistory: [],         // 决策历史 [{ dilemmaId, optionId, turn, chapter }]
+  triggeredEchoes: [],         // 已触发的回响事件ID
+  decisionPatterns: {},        // 决策模式统计
   
   // === 挑战系统（替代原战斗系统） ===
   challenge: {

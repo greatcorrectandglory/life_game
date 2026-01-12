@@ -26,6 +26,7 @@ import { initRenderer, renderGame, updateUI, showActionPicker, initZones } from 
 import { applyAction, endTurn, handleCombatAction } from "./src/core/gameLoop.js";
 import { initInputHandlers } from "./src/core/director.js";
 import { syncStartModal } from "./src/ui/syncStartModal.js";
+import { renderLifeReviewPanel } from "./src/ui/lifeReview.js";
 
 const state = getStateRef();
 
@@ -855,6 +856,29 @@ const init = () => {
   syncStartModal({
     onStart: () => randomTalents()
   });
+
+  // 人生回顾按钮
+  const lifeReviewBtn = document.getElementById('btn-life-review');
+  const lifeReviewModal = document.getElementById('life-review-modal');
+  const lifeReviewClose = document.getElementById('life-review-close');
+
+  if (lifeReviewBtn && lifeReviewModal && lifeReviewClose) {
+    lifeReviewBtn.addEventListener('click', () => {
+      renderLifeReviewPanel('life-review-content');
+      lifeReviewModal.classList.remove('hidden');
+    });
+
+    lifeReviewClose.addEventListener('click', () => {
+      lifeReviewModal.classList.add('hidden');
+    });
+
+    // 点击模态框外部关闭
+    lifeReviewModal.addEventListener('click', (e) => {
+      if (e.target === lifeReviewModal) {
+        lifeReviewModal.classList.add('hidden');
+      }
+    });
+  }
 
   requestAnimationFrame(loop);
 };

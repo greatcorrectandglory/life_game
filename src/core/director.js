@@ -91,8 +91,8 @@ export const initInputHandlers = () => {
       return;
     }
 
-    if (ACTION_GROUPS[zone.id]) {
-      showActionPicker(zone.id, (actionId) => applyAction(actionId));
+    // Delegate to showActionPicker which handles ID mapping
+    if (showActionPicker(zone.id, (actionId) => applyAction(actionId))) {
       return;
     }
 

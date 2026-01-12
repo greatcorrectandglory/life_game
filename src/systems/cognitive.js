@@ -113,6 +113,14 @@ export const applySkillDecay = (state) => {
   const skills = { ...state.skills };
 
   for (const [skillId, skillData] of Object.entries(skills)) {
+    const normalizedSkill = typeof skillData === "number"
+      ? { level: skillData, lastUsed: -1 }
+      : { ...(skillData || {}) };
+    normalizedSkill.level = normalizedSkill.level || 0;
+    if (normalizedSkill.lastUsed === undefined || normalizedSkill.lastUsed === null) {
+      normalizedSkill.lastUsed = -1;
+    }
+
     const definition = SKILL_DEFINITIONS[skillId];
     if (!definition) continue;
 
@@ -129,9 +137,11 @@ export const applySkillDecay = (state) => {
     }
 
     // 只要有等级就衰减，除非本回合刚用过
-    if (skillData.level > 0 && skillData.lastUsed < state.totalTurns) {
-      skillData.level = Math.max(0, skillData.level - decayAmount);
+    if (normalizedSkill.level > 0 && normalizedSkill.lastUsed < state.totalTurns) {
+      normalizedSkill.level = Math.max(0, normalizedSkill.level - decayAmount);
     }
+
+    skills[skillId] = normalizedSkill;
   }
 
   return skills;

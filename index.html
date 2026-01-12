@@ -52,6 +52,7 @@
                 id="val-turn-num">1</span>回合</span></div>
           <div class="stat-item status-chip"><span class="icon">🧭</span> <span id="val-state"
               class="status-text"></span></div>
+          <button id="btn-life-review" class="hud-btn">人生回顾</button>
           <button id="btn-achievements" class="hud-btn">成就</button>
         </div>
       </header>
@@ -158,6 +159,16 @@
           <div id="achievements-list" class="achievement-list"></div>
           <div style="margin-top:16px">
             <button id="achievements-close" class="btn-danger">关闭</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Life Review Modal -->
+      <div id="life-review-modal" class="overlay hidden">
+        <div class="life-review-container">
+          <div id="life-review-content"></div>
+          <div class="life-review-close">
+            <button id="life-review-close">关闭</button>
           </div>
         </div>
       </div>

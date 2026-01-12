@@ -1,4 +1,4 @@
-import { SKILL_TREE } from '../data/skillsTree.js';
+import { SKILL_TREE } from '../data/skill_tree.js';
 import { getState, patchState } from '../core/enhancedState.js';
 import { logger } from '../utils/logger.js';
 
@@ -42,7 +42,9 @@ export const getSkillInfo = (skillId) => {
  */
 export const getSkillLevel = (skillId) => {
   const state = getState();
-  return state.skills[skillId] || 0;
+  const entry = state.skills[skillId];
+  if (!entry) return 0;
+  return typeof entry === 'number' ? entry : entry.level || 0;
 };
 
 /**
@@ -93,15 +95,23 @@ export const upgradeSkill = (skillId) => {
   try {
     const state = getState();
     const skillInfo = getSkillInfo(skillId);
+    const currentEntry = state.skills[skillId];
     const currentLevel = getSkillLevel(skillId);
 
     const newLevel = currentLevel + 1;
+    const nextEntry = typeof currentEntry === 'number'
+      ? { level: newLevel, lastUsed: state.totalTurns }
+      : {
+          ...(currentEntry || {}),
+          level: newLevel,
+          lastUsed: currentEntry?.lastUsed ?? state.totalTurns
+        };
 
     patchState({
       skillPoints: state.skillPoints - 1,
       skills: {
         ...state.skills,
-        [skillId]: newLevel
+        [skillId]: nextEntry
       }
     });
 
@@ -144,9 +154,10 @@ export const getSkillBonus = (statKey) => {
   const skills = state.skills || {};
   let bonus = 0;
 
-  Object.entries(skills).forEach(([skillId, level]) => {
+  Object.entries(skills).forEach(([skillId, entry]) => {
     const skillInfo = getSkillInfo(skillId);
     if (!skillInfo) return;
+    const level = typeof entry === 'number' ? entry : entry.level || 0;
 
     const statMap = {
       'logic': 'knowledge',
@@ -182,7 +193,10 @@ export const getTotalSkillPoints = () => {
   const state = getState();
   const skills = state.skills || {};
 
-  return Object.values(skills).reduce((sum, level) => sum + level, 0);
+  return Object.values(skills).reduce((sum, entry) => {
+    const level = typeof entry === 'number' ? entry : entry.level || 0;
+    return sum + level;
+  }, 0);
 };
 
 /**
@@ -253,7 +267,8 @@ export const getSkillStats = () => {
     let categoryLevels = 0;
 
     categorySkills.forEach(skill => {
-      const level = skills[skill.id] || 0;
+      const entry = skills[skill.id];
+      const level = typeof entry === 'number' ? entry : entry?.level || 0;
       stats.totalLevels += level;
 
       if (level > 0) categoryLearned++;

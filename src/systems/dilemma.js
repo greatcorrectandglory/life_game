@@ -99,12 +99,25 @@ export const resolveDilemma = (state, dilemmaId, optionId) => {
     }
   }
 
-  // 3. 记录选择结果
+  // 3. 记录选择结果和决策历史
   state.events.dilemmaResults[dilemmaId] = {
     optionId,
     turn: state.totalTurns,
+    chapter: state.chapter,
     riskTriggered: result.riskTriggered,
   };
+
+  // 记录到决策历史 (用于决策回响系统)
+  if (!state.decisionHistory) {
+    state.decisionHistory = [];
+  }
+  state.decisionHistory.push({
+    dilemmaId,
+    optionId,
+    turn: state.totalTurns,
+    chapter: state.chapter,
+    riskTriggered: result.riskTriggered,
+  });
 
   // 4. 应用即时效果到状态
   Object.entries(result.immediateEffects).forEach(([key, value]) => {

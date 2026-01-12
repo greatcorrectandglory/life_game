@@ -300,13 +300,13 @@ export const ACTIONS = [
 ];
 
 export const ACTION_GROUPS = {
-  study: { title: "学习进修", color: "#4ade80", icon: "📚" },
-  work: { title: "工作职业", color: "#f59e0b", icon: "💼" },
-  social: { title: "社交人脉", color: "#ec4899", icon: "🤝" },
-  creative: { title: "创作表达", color: "#a78bfa", icon: "🎨" },
-  health: { title: "身心健康", color: "#34d399", icon: "🧘" },
-  leisure: { title: "娱乐休闲", color: "#60a5fa", icon: "🎮" },
-  rest: { title: "休息恢复", color: "#9ca3af", icon: "💤" },
+  study: { title: "学习进修", subtitle: "投资大脑，提升认知", color: "#4ade80", icon: "📚" },
+  work: { title: "工作职业", subtitle: "创造价值，积累财富", color: "#f59e0b", icon: "💼" },
+  social: { title: "社交人脉", subtitle: "建立连接，拓展机遇", color: "#ec4899", icon: "🤝" },
+  creative: { title: "创作表达", subtitle: "释放灵感，打磨作品", color: "#a78bfa", icon: "🎨" },
+  health: { title: "身心健康", subtitle: "强健体魄，调节心态", color: "#34d399", icon: "🧘" },
+  leisure: { title: "娱乐休闲", subtitle: "劳逸结合，恢复精力", color: "#60a5fa", icon: "🎮" },
+  rest: { title: "休息恢复", subtitle: "养精蓄锐，整装待发", color: "#9ca3af", icon: "💤" },
 };
 
 export const getActionsByCategory = (category) =>

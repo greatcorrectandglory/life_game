@@ -1,13 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- The repository currently contains a single planning document at the root: `人生模拟器头脑风暴.docx`.
-- There are no source-code, test, or asset directories at this time.
+- Root documents include `README.md`, `CHANGELOG.md`, `OPTIMIZATION_SUGGESTIONS.md`, `人生模拟器头脑风暴.md`, and `playability-improvements.md`.
+- Source code lives in `src/`, with `assets/` for images and `backup/` for snapshots.
 - If you add new materials, keep top-level documents grouped with clear names (e.g., `design-notes.docx`, `requirements.md`) and update this guide accordingly.
 
 ## Build, Test, and Development Commands
-- No build, test, or runtime commands are defined in this repository.
-- If you need to export or convert the document, use your local tooling. Example (if available):
+- Use the commands documented in `README.md` for install, dev, build, and test.
+- If you need to export or convert a document, use your local tooling. Example (if available):
   - `libreoffice --headless --convert-to pdf 人生模拟器头脑风暴.docx`
 - When adding automation (scripts, Makefile, package.json), document the exact commands and their purpose here.
 
